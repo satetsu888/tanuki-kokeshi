@@ -80,7 +80,7 @@ function getCharFrequency(text: string): Record<string, number> {
 }
 
 // A*アルゴリズムによる経路探索
-export function findPath(start: string, target: string, maxDepth: number = 10): SearchResult {
+export function findPath(start: string, target: string, maxDepth: number = 1000): SearchResult {
   if (start === target) {
     return { found: true, path: [], steps: [start] };
   }
@@ -175,7 +175,7 @@ export function findPath(start: string, target: string, maxDepth: number = 10): 
 }
 
 // 複数のヒントの組み合わせで変換可能かチェック
-export function canTransform(start: string, target: string, maxDepth: number = 10): boolean {
+export function canTransform(start: string, target: string, maxDepth: number = 1000): boolean {
   const result = findPath(start, target, maxDepth);
   return result.found;
 }

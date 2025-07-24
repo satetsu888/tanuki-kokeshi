@@ -15,6 +15,7 @@ const selectedHintsContainer = document.getElementById('selected-hints') as HTML
 const executeBtn = document.getElementById('execute-btn') as HTMLButtonElement;
 const resultSection = document.getElementById('result-section') as HTMLDivElement;
 const resultContent = document.getElementById('result-content') as HTMLDivElement;
+const loadingSection = document.getElementById('loading-section') as HTMLDivElement;
 const modeRadios = document.querySelectorAll('input[name="mode"]') as NodeListOf<HTMLInputElement>;
 const decodeLabel = document.querySelector('.decode-label') as HTMLSpanElement;
 const encodeLabel = document.querySelector('.encode-label') as HTMLSpanElement;
@@ -103,8 +104,9 @@ function switchMode(mode: Mode): void {
     }
   }
   
-  // 結果をクリア
+  // 結果とローディングをクリア
   resultSection.style.display = 'none';
+  loadingSection.style.display = 'none';
   resultContent.textContent = '';
 }
 
@@ -153,73 +155,93 @@ function executePathfind(): void {
     return;
   }
   
-  // 経路探索を実行
-  const result = findPath(start, target);
+  // ローディング表示を開始
+  loadingSection.style.display = 'block';
+  resultSection.style.display = 'none';
+  executeBtn.disabled = true;
   
-  if (result.found && result.path && result.steps) {
-    let html = '<div class="pathfind-result">';
-    html += `<h3>発見した経路（${result.path.length}ステップ）</h3>`;
-    
-    // ヒントの順序を表示
-    html += '<div class="hint-sequence">';
-    html += '<strong>使用するヒント：</strong> ';
-    html += result.path.map(hint => `<span class="hint-badge">${hint}</span>`).join(' → ');
-    html += '</div>';
-    
-    // 変換過程を表示
-    html += '<div class="transformation-steps">';
-    html += '<strong>変換過程：</strong>';
-    html += '<ol>';
-    for (let i = 0; i < result.steps.length; i++) {
-      html += `<li>${result.steps[i]}`;
-      if (i < result.path.length) {
-        html += ` <span class="step-hint">（${result.path[i]}を適用）</span>`;
-      }
-      html += '</li>';
-    }
-    html += '</ol>';
-    html += '</div>';
-    
-    html += '</div>';
-    
-    resultContent.innerHTML = html;
-    resultSection.style.display = 'block';
-  } else {
-    let html = '<div class="no-path-result">';
-    html += '<div class="no-path">完全な経路は見つかりませんでした。</div>';
-    
-    // ベスト5が存在する場合は表示
-    if (result.bestAttempts && result.bestAttempts.length > 0) {
-      html += '<div class="best-attempts">';
-      html += '<h3>目標に最も近い状態（ベスト5）</h3>';
-      html += '<p class="best-attempts-description">以下は探索中に見つかった、目標文章に最も近い状態です：</p>';
+  // 少し遅延させてUIを更新させる
+  setTimeout(() => {
+    try {
+      // 経路探索を実行
+      const result = findPath(start, target);
       
-      html += '<ol class="best-attempts-list">';
-      for (const attempt of result.bestAttempts) {
-        html += '<li class="best-attempt-item">';
-        html += `<div class="attempt-text">${attempt.text}</div>`;
-        html += `<div class="attempt-info">`;
-        html += `<span class="attempt-distance">距離: ${attempt.distance.toFixed(2)}</span>`;
-        html += `<span class="attempt-steps">ステップ数: ${attempt.path.length}</span>`;
-        html += `</div>`;
-        
-        if (attempt.path.length > 0) {
-          html += `<div class="attempt-path">`;
-          html += `使用したヒント: ${attempt.path.map(h => `<span class="hint-badge-small">${h}</span>`).join(' → ')}`;
-          html += `</div>`;
+      // ローディング表示を終了
+      loadingSection.style.display = 'none';
+      executeBtn.disabled = false;
+  
+    if (result.found && result.path && result.steps) {
+      let html = '<div class="pathfind-result">';
+      html += `<h3>発見した経路（${result.path.length}ステップ）</h3>`;
+      
+      // ヒントの順序を表示
+      html += '<div class="hint-sequence">';
+      html += '<strong>使用するヒント：</strong> ';
+      html += result.path.map(hint => `<span class="hint-badge">${hint}</span>`).join(' → ');
+      html += '</div>';
+      
+      // 変換過程を表示
+      html += '<div class="transformation-steps">';
+      html += '<strong>変換過程：</strong>';
+      html += '<ol>';
+      for (let i = 0; i < result.steps.length; i++) {
+        html += `<li>${result.steps[i]}`;
+        if (i < result.path.length) {
+          html += ` <span class="step-hint">（${result.path[i]}を適用）</span>`;
         }
-        
         html += '</li>';
       }
       html += '</ol>';
       html += '</div>';
+      
+      html += '</div>';
+      
+      resultContent.innerHTML = html;
+      resultSection.style.display = 'block';
+    } else {
+      let html = '<div class="no-path-result">';
+      html += '<div class="no-path">完全な経路は見つかりませんでした。</div>';
+      
+      // ベスト5が存在する場合は表示
+      if (result.bestAttempts && result.bestAttempts.length > 0) {
+        html += '<div class="best-attempts">';
+        html += '<h3>目標に最も近い状態（ベスト5）</h3>';
+        html += '<p class="best-attempts-description">以下は探索中に見つかった、目標文章に最も近い状態です：</p>';
+        
+        html += '<ol class="best-attempts-list">';
+        for (const attempt of result.bestAttempts) {
+          html += '<li class="best-attempt-item">';
+          html += `<div class="attempt-text">${attempt.text}</div>`;
+          html += `<div class="attempt-info">`;
+          html += `<span class="attempt-distance">距離: ${attempt.distance.toFixed(2)}</span>`;
+          html += `<span class="attempt-steps">ステップ数: ${attempt.path.length}</span>`;
+          html += `</div>`;
+          
+          if (attempt.path.length > 0) {
+            html += `<div class="attempt-path">`;
+            html += `使用したヒント: ${attempt.path.map(h => `<span class="hint-badge-small">${h}</span>`).join(' → ')}`;
+            html += `</div>`;
+          }
+          
+          html += '</li>';
+        }
+        html += '</ol>';
+        html += '</div>';
+      }
+      
+      html += '</div>';
+      
+      resultContent.innerHTML = html;
+      resultSection.style.display = 'block';
     }
-    
-    html += '</div>';
-    
-    resultContent.innerHTML = html;
-    resultSection.style.display = 'block';
-  }
+    } catch (error) {
+      // エラーが発生した場合もローディングを非表示にする
+      loadingSection.style.display = 'none';
+      executeBtn.disabled = false;
+      alert('経路探索中にエラーが発生しました');
+      console.error(error);
+    }
+  }, 50); // 50ms遅延させてUIを更新
 }
 
 // イベントリスナーの設定
