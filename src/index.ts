@@ -202,10 +202,10 @@ function executePathfind(): void {
       let html = '<div class="no-path-result">';
       html += '<div class="no-path">完全な経路は見つかりませんでした。</div>';
       
-      // ベスト5が存在する場合は表示
+      // ベスト30が存在する場合は表示
       if (result.bestAttempts && result.bestAttempts.length > 0) {
         html += '<div class="best-attempts">';
-        html += '<h3>目標に最も近い状態（ベスト5）</h3>';
+        html += '<h3>目標に最も近い状態（ベスト30）</h3>';
         html += '<p class="best-attempts-description">以下は探索中に見つかった、目標文章に最も近い状態です：</p>';
         
         html += '<ol class="best-attempts-list">';

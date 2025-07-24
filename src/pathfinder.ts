@@ -159,12 +159,12 @@ export function findPath(start: string, target: string, maxDepth: number = 1000)
     }
   }
   
-  // 経路が見つからなかった場合、最も近い状態のベスト5を返す
+  // 経路が見つからなかった場合、最も近い状態のベスト30を返す
   const allStates = Array.from(visited.values());
   allStates.sort((a, b) => a.distance - b.distance);
   
   const bestAttempts: BestAttempt[] = allStates
-    .slice(0, 5)
+    .slice(0, 30)
     .map(state => ({
       text: state.text,
       path: state.path,
