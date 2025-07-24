@@ -23,10 +23,14 @@
                     <input type="radio" name="mode" value="encode">
                     問題を作る
                 </label>
+                <label>
+                    <input type="radio" name="mode" value="pathfind">
+                    経路を探す
+                </label>
             </div>
 
             <div class="input-section">
-                <div class="form-group">
+                <div class="form-group decode-encode-mode">
                     <label for="input-text">
                         <span class="decode-label">問題：</span>
                         <span class="encode-label" style="display: none;">答え：</span>
@@ -34,7 +38,17 @@
                     <input type="text" id="input-text" placeholder="文字を入力してください">
                 </div>
 
-                <div class="form-group">
+                <div class="form-group pathfind-mode" style="display: none;">
+                    <label for="start-text">開始文章：</label>
+                    <input type="text" id="start-text" placeholder="変換元の文章">
+                </div>
+
+                <div class="form-group pathfind-mode" style="display: none;">
+                    <label for="target-text">目標文章：</label>
+                    <input type="text" id="target-text" placeholder="変換先の文章">
+                </div>
+
+                <div class="form-group decode-encode-mode">
                     <label>ヒント（複数選択可）：</label>
                     <div id="hint-checkboxes" class="hint-checkboxes"></div>
                     <div id="selected-hints" class="selected-hints"></div>

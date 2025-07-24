@@ -1,12 +1,15 @@
 import { getAllHints } from './hints';
 import { decode, encode } from './cipher';
+import { findPath } from './pathfinder';
 
-type Mode = 'decode' | 'encode';
+type Mode = 'decode' | 'encode' | 'pathfind';
 
 let currentMode: Mode = 'decode';
 let selectedHints: string[] = [];
 
 const inputText = document.getElementById('input-text') as HTMLInputElement;
+const startText = document.getElementById('start-text') as HTMLInputElement;
+const targetText = document.getElementById('target-text') as HTMLInputElement;
 const hintCheckboxesContainer = document.getElementById('hint-checkboxes') as HTMLDivElement;
 const selectedHintsContainer = document.getElementById('selected-hints') as HTMLDivElement;
 const executeBtn = document.getElementById('execute-btn') as HTMLButtonElement;
@@ -15,6 +18,8 @@ const resultContent = document.getElementById('result-content') as HTMLDivElemen
 const modeRadios = document.querySelectorAll('input[name="mode"]') as NodeListOf<HTMLInputElement>;
 const decodeLabel = document.querySelector('.decode-label') as HTMLSpanElement;
 const encodeLabel = document.querySelector('.encode-label') as HTMLSpanElement;
+const decodeEncodeModeElements = document.querySelectorAll('.decode-encode-mode') as NodeListOf<HTMLElement>;
+const pathfindModeElements = document.querySelectorAll('.pathfind-mode') as NodeListOf<HTMLElement>;
 
 // ヒントチェックボックスを作成
 function populateHints(): void {
@@ -77,14 +82,25 @@ function displaySelectedHints(): void {
 function switchMode(mode: Mode): void {
   currentMode = mode;
   
-  if (mode === 'decode') {
-    decodeLabel.style.display = 'inline';
-    encodeLabel.style.display = 'none';
-    inputText.placeholder = '問題を入力してください';
+  // UI要素の表示/非表示を切り替え
+  if (mode === 'pathfind') {
+    decodeEncodeModeElements.forEach(el => el.style.display = 'none');
+    pathfindModeElements.forEach(el => el.style.display = 'block');
+    executeBtn.textContent = '経路を探す';
   } else {
-    decodeLabel.style.display = 'none';
-    encodeLabel.style.display = 'inline';
-    inputText.placeholder = '答えを入力してください';
+    decodeEncodeModeElements.forEach(el => el.style.display = 'block');
+    pathfindModeElements.forEach(el => el.style.display = 'none');
+    executeBtn.textContent = '実行';
+    
+    if (mode === 'decode') {
+      decodeLabel.style.display = 'inline';
+      encodeLabel.style.display = 'none';
+      inputText.placeholder = '問題を入力してください';
+    } else {
+      decodeLabel.style.display = 'none';
+      encodeLabel.style.display = 'inline';
+      inputText.placeholder = '答えを入力してください';
+    }
   }
   
   // 結果をクリア
@@ -94,6 +110,15 @@ function switchMode(mode: Mode): void {
 
 // 実行処理
 function execute(): void {
+  if (currentMode === 'pathfind') {
+    executePathfind();
+  } else {
+    executeDecodeEncode();
+  }
+}
+
+// デコード/エンコード実行
+function executeDecodeEncode(): void {
   const text = inputText.value.trim();
   
   if (!text) {
@@ -115,6 +140,53 @@ function execute(): void {
     resultSection.style.display = 'block';
   } else if (result.error) {
     alert(result.error);
+  }
+}
+
+// 経路探索実行
+function executePathfind(): void {
+  const start = startText.value.trim();
+  const target = targetText.value.trim();
+  
+  if (!start || !target) {
+    alert('開始文章と目標文章を両方入力してください');
+    return;
+  }
+  
+  // 経路探索を実行
+  const result = findPath(start, target);
+  
+  if (result.found && result.path && result.steps) {
+    let html = '<div class="pathfind-result">';
+    html += `<h3>発見した経路（${result.path.length}ステップ）</h3>`;
+    
+    // ヒントの順序を表示
+    html += '<div class="hint-sequence">';
+    html += '<strong>使用するヒント：</strong> ';
+    html += result.path.map(hint => `<span class="hint-badge">${hint}</span>`).join(' → ');
+    html += '</div>';
+    
+    // 変換過程を表示
+    html += '<div class="transformation-steps">';
+    html += '<strong>変換過程：</strong>';
+    html += '<ol>';
+    for (let i = 0; i < result.steps.length; i++) {
+      html += `<li>${result.steps[i]}`;
+      if (i < result.path.length) {
+        html += ` <span class="step-hint">（${result.path[i]}を適用）</span>`;
+      }
+      html += '</li>';
+    }
+    html += '</ol>';
+    html += '</div>';
+    
+    html += '</div>';
+    
+    resultContent.innerHTML = html;
+    resultSection.style.display = 'block';
+  } else {
+    resultContent.innerHTML = '<div class="no-path">経路が見つかりませんでした。<br>異なるヒントの組み合わせでは変換できない可能性があります。</div>';
+    resultSection.style.display = 'block';
   }
 }
 
