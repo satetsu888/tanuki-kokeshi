@@ -7,10 +7,17 @@ interface SearchState {
   cost: number;
 }
 
+interface BestAttempt {
+  text: string;
+  path: string[];
+  distance: number;
+}
+
 interface SearchResult {
   found: boolean;
   path?: string[];
   steps?: string[];
+  bestAttempts?: BestAttempt[];
 }
 
 // 優先度付きキュー（簡易実装）
@@ -79,7 +86,7 @@ export function findPath(start: string, target: string, maxDepth: number = 10): 
   }
   
   const hints = getAllHints();
-  const visited = new Set<string>();
+  const visited = new Map<string, { text: string; path: string[]; distance: number }>();
   const queue = new PriorityQueue<SearchState>();
   
   // 初期状態
@@ -97,12 +104,19 @@ export function findPath(start: string, target: string, maxDepth: number = 10): 
       continue;
     }
     
-    // 訪問済みチェック
-    const stateKey = `${current.text}:${current.path.join(',')}`;
-    if (visited.has(stateKey)) {
+    // 訪問済みチェック（同じテキストでもより短い経路なら更新）
+    const existingState = visited.get(current.text);
+    if (existingState && existingState.path.length <= current.path.length) {
       continue;
     }
-    visited.add(stateKey);
+    
+    // 現在の状態を記録
+    const distance = heuristic(current.text, target);
+    visited.set(current.text, {
+      text: current.text,
+      path: current.path,
+      distance
+    });
     
     // ゴール判定
     if (current.text === target) {
@@ -145,7 +159,19 @@ export function findPath(start: string, target: string, maxDepth: number = 10): 
     }
   }
   
-  return { found: false };
+  // 経路が見つからなかった場合、最も近い状態のベスト5を返す
+  const allStates = Array.from(visited.values());
+  allStates.sort((a, b) => a.distance - b.distance);
+  
+  const bestAttempts: BestAttempt[] = allStates
+    .slice(0, 5)
+    .map(state => ({
+      text: state.text,
+      path: state.path,
+      distance: state.distance
+    }));
+  
+  return { found: false, bestAttempts };
 }
 
 // 複数のヒントの組み合わせで変換可能かチェック

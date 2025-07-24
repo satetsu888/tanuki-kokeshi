@@ -185,7 +185,39 @@ function executePathfind(): void {
     resultContent.innerHTML = html;
     resultSection.style.display = 'block';
   } else {
-    resultContent.innerHTML = '<div class="no-path">経路が見つかりませんでした。<br>異なるヒントの組み合わせでは変換できない可能性があります。</div>';
+    let html = '<div class="no-path-result">';
+    html += '<div class="no-path">完全な経路は見つかりませんでした。</div>';
+    
+    // ベスト5が存在する場合は表示
+    if (result.bestAttempts && result.bestAttempts.length > 0) {
+      html += '<div class="best-attempts">';
+      html += '<h3>目標に最も近い状態（ベスト5）</h3>';
+      html += '<p class="best-attempts-description">以下は探索中に見つかった、目標文章に最も近い状態です：</p>';
+      
+      html += '<ol class="best-attempts-list">';
+      for (const attempt of result.bestAttempts) {
+        html += '<li class="best-attempt-item">';
+        html += `<div class="attempt-text">${attempt.text}</div>`;
+        html += `<div class="attempt-info">`;
+        html += `<span class="attempt-distance">距離: ${attempt.distance.toFixed(2)}</span>`;
+        html += `<span class="attempt-steps">ステップ数: ${attempt.path.length}</span>`;
+        html += `</div>`;
+        
+        if (attempt.path.length > 0) {
+          html += `<div class="attempt-path">`;
+          html += `使用したヒント: ${attempt.path.map(h => `<span class="hint-badge-small">${h}</span>`).join(' → ')}`;
+          html += `</div>`;
+        }
+        
+        html += '</li>';
+      }
+      html += '</ol>';
+      html += '</div>';
+    }
+    
+    html += '</div>';
+    
+    resultContent.innerHTML = html;
     resultSection.style.display = 'block';
   }
 }
