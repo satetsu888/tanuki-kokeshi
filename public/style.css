@@ -97,10 +97,64 @@ input[type="text"]:focus, select:focus {
     border-color: #3498db;
 }
 
+.hint-checkboxes {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-radius: 5px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.hint-checkbox {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.hint-checkbox input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    margin-right: 10px;
+    cursor: pointer;
+}
+
+.hint-checkbox label {
+    cursor: pointer;
+    font-weight: normal;
+    margin-bottom: 0;
+}
+
 .hint-description {
     display: inline-block;
-    margin-left: 10px;
+    margin-left: 5px;
     color: #7f8c8d;
+    font-size: 0.9rem;
+}
+
+.selected-hints {
+    margin-top: 10px;
+    padding: 10px;
+    background-color: #e3f2fd;
+    border-radius: 5px;
+    min-height: 40px;
+}
+
+.selected-hints-label {
+    font-weight: bold;
+    color: #2c3e50;
+    margin-bottom: 5px;
+}
+
+.selected-hint-item {
+    display: inline-block;
+    padding: 4px 8px;
+    margin: 2px;
+    background-color: #3498db;
+    color: white;
+    border-radius: 3px;
     font-size: 0.9rem;
 }
 
