@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>たぬきこけし - 日本語なぞなぞ暗号</title>
+    <link rel="stylesheet" href="/public/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>たぬきこけし</h1>
+            <p class="subtitle">日本語のなぞなぞ・暗号遊び</p>
+        </header>
+
+        <main>
+            <div class="mode-selector">
+                <label>
+                    <input type="radio" name="mode" value="decode" checked>
+                    問題を解く
+                </label>
+                <label>
+                    <input type="radio" name="mode" value="encode">
+                    問題を作る
+                </label>
+            </div>
+
+            <div class="input-section">
+                <div class="form-group">
+                    <label for="input-text">
+                        <span class="decode-label">問題：</span>
+                        <span class="encode-label" style="display: none;">答え：</span>
+                    </label>
+                    <input type="text" id="input-text" placeholder="文字を入力してください">
+                </div>
+
+                <div class="form-group">
+                    <label for="hint-select">ヒント：</label>
+                    <select id="hint-select">
+                        <option value="">選択してください</option>
+                    </select>
+                    <span id="hint-description" class="hint-description"></span>
+                </div>
+
+                <button id="execute-btn" class="execute-btn">実行</button>
+            </div>
+
+            <div id="result-section" class="result-section" style="display: none;">
+                <h2>結果</h2>
+                <div id="result-content" class="result-content"></div>
+            </div>
+
+            <div class="examples">
+                <h3>例</h3>
+                <ul>
+                    <li>「とけたい」＋「たぬき」→「とけい」（時計）</li>
+                    <li>「ここにあります」＋「こけし」→「にあります」（似合います）</li>
+                    <li>「はみだしきんし」＋「はみがき」→「きだしきんし」（木出し禁止）</li>
+                </ul>
+            </div>
+        </main>
+    </div>
+
+    <script type="module" src="/src/index.ts"></script>
+</body>
+</html>
