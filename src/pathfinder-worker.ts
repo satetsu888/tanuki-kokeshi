@@ -82,6 +82,11 @@ interface WorkerResult {
   steps?: string[];
   bestAttempts?: BestAttempt[];
   progress?: number;
+  currentBest?: {
+    text: string;
+    distance: number;
+    path: string[];
+  };
 }
 
 // グローバル変数で中断フラグを管理
@@ -370,9 +375,23 @@ async function findPathDFS(start: string, target: string, hints: Hint[], maxDept
     // 進捗を報告（100ms毎）
     const now = Date.now();
     if (now - lastProgressUpdate > 100) {
+      // 現在の最良結果を取得
+      const allStatesList = Array.from(allStates.values());
+      let currentBest;
+      if (allStatesList.length > 0) {
+        allStatesList.sort((a, b) => a.distance - b.distance);
+        const best = allStatesList[0];
+        currentBest = {
+          text: best.text,
+          distance: best.distance,
+          path: best.path
+        };
+      }
+      
       self.postMessage({
         type: 'progress',
-        progress: totalChecked
+        progress: totalChecked,
+        currentBest
       } as WorkerResult);
       lastProgressUpdate = now;
       

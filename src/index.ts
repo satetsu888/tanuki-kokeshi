@@ -16,6 +16,11 @@ interface WorkerResult {
   steps?: string[];
   bestAttempts?: BestAttempt[];
   progress?: number;
+  currentBest?: {
+    text: string;
+    distance: number;
+    path: string[];
+  };
 }
 
 let currentMode: Mode = 'decode';
@@ -190,7 +195,12 @@ function executePathfind(): void {
     const result: WorkerResult = event.data;
     
     if (result.type === 'progress' && result.progress) {
-      loadingProgress.textContent = `検索済み: ${result.progress.toLocaleString()} 状態`;
+      let progressText = `検索済み: ${result.progress.toLocaleString()} 状態`;
+      if (result.currentBest) {
+        progressText += `\n現在の最短距離: ${result.currentBest.distance.toFixed(2)}`;
+        progressText += `\n最良結果: ${result.currentBest.text}`;
+      }
+      loadingProgress.innerHTML = progressText.replace(/\n/g, '<br>');
       return;
     }
     
