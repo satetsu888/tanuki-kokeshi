@@ -404,3 +404,29 @@ input[type="text"]:focus, select:focus {
     font-size: 1.1rem;
     margin: 0;
 }
+
+.loading-progress {
+    color: #95a5a6;
+    font-size: 0.9rem;
+    margin: 10px 0;
+}
+
+.cancel-btn {
+    margin-top: 20px;
+    padding: 10px 20px;
+    font-size: 1rem;
+    color: #fff;
+    background-color: #e74c3c;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.cancel-btn:hover {
+    background-color: #c0392b;
+}
+
+.cancel-btn:active {
+    transform: translateY(1px);
+}

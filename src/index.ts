@@ -1,11 +1,26 @@
 import { getAllHints } from './hints';
 import { decode, encode } from './cipher';
-import { findPathDFS } from './pathfinder';
 
 type Mode = 'decode' | 'encode' | 'pathfind';
 
+interface BestAttempt {
+  text: string;
+  path: string[];
+  distance: number;
+}
+
+interface WorkerResult {
+  type: 'result' | 'progress' | 'cancelled';
+  found?: boolean;
+  path?: string[];
+  steps?: string[];
+  bestAttempts?: BestAttempt[];
+  progress?: number;
+}
+
 let currentMode: Mode = 'decode';
 let selectedHints: string[] = [];
+let pathfinderWorker: Worker | null = null;
 
 const inputText = document.getElementById('input-text') as HTMLInputElement;
 const startText = document.getElementById('start-text') as HTMLInputElement;
@@ -16,6 +31,8 @@ const executeBtn = document.getElementById('execute-btn') as HTMLButtonElement;
 const resultSection = document.getElementById('result-section') as HTMLDivElement;
 const resultContent = document.getElementById('result-content') as HTMLDivElement;
 const loadingSection = document.getElementById('loading-section') as HTMLDivElement;
+const loadingProgress = document.getElementById('loading-progress') as HTMLParagraphElement;
+const cancelBtn = document.getElementById('cancel-btn') as HTMLButtonElement;
 const modeRadios = document.querySelectorAll('input[name="mode"]') as NodeListOf<HTMLInputElement>;
 const decodeLabel = document.querySelector('.decode-label') as HTMLSpanElement;
 const encodeLabel = document.querySelector('.encode-label') as HTMLSpanElement;
@@ -159,16 +176,34 @@ function executePathfind(): void {
   loadingSection.style.display = 'block';
   resultSection.style.display = 'none';
   executeBtn.disabled = true;
+  loadingProgress.textContent = '';
   
-  // 少し遅延させてUIを更新させる
-  setTimeout(() => {
-    try {
-      // 経路探索を実行（深さ優先探索）
-      const result = findPathDFS(start, target);
-      
-      // ローディング表示を終了
+  // Web Worker を作成
+  if (pathfinderWorker) {
+    pathfinderWorker.terminate();
+  }
+  
+  pathfinderWorker = new Worker(new URL('./pathfinder-worker.ts', import.meta.url));
+  
+  // Worker からのメッセージを処理
+  pathfinderWorker.onmessage = (event) => {
+    const result: WorkerResult = event.data;
+    
+    if (result.type === 'progress' && result.progress) {
+      loadingProgress.textContent = `検索済み: ${result.progress.toLocaleString()} 状態`;
+      return;
+    }
+    
+    if (result.type === 'cancelled') {
       loadingSection.style.display = 'none';
       executeBtn.disabled = false;
+      alert('探索が中断されました');
+      return;
+    }
+    
+    // ローディング表示を終了
+    loadingSection.style.display = 'none';
+    executeBtn.disabled = false;
   
     if (result.found && result.path && result.steps) {
       let html = '<div class="pathfind-result">';
@@ -234,14 +269,24 @@ function executePathfind(): void {
       resultContent.innerHTML = html;
       resultSection.style.display = 'block';
     }
-    } catch (error) {
-      // エラーが発生した場合もローディングを非表示にする
-      loadingSection.style.display = 'none';
-      executeBtn.disabled = false;
-      alert('経路探索中にエラーが発生しました');
-      console.error(error);
-    }
-  }, 50); // 50ms遅延させてUIを更新
+  };
+  
+  // エラーハンドリング
+  pathfinderWorker.onerror = (error) => {
+    loadingSection.style.display = 'none';
+    executeBtn.disabled = false;
+    alert('経路探索中にエラーが発生しました');
+    console.error(error);
+  };
+  
+  // Worker に探索開始のメッセージを送信
+  pathfinderWorker.postMessage({
+    type: 'search',
+    start: start,
+    target: target,
+    maxDepth: 20,
+    hints: getAllHints()
+  });
 }
 
 // イベントリスナーの設定
@@ -262,6 +307,13 @@ function setupEventListeners(): void {
   inputText.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
       execute();
+    }
+  });
+  
+  // 中断ボタン
+  cancelBtn.addEventListener('click', () => {
+    if (pathfinderWorker) {
+      pathfinderWorker.postMessage({ type: 'cancel' });
     }
   });
 }
