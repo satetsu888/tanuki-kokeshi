@@ -314,6 +314,11 @@ async function findPathDFS(start: string, target: string, hints: Hint[], maxDept
       
       // ヒントを適用して新しい状態を生成
       for (const hint of hints) {
+        // 枝刈り: ヒントの対象文字が現在のテキストに含まれていなければスキップ
+        if (!state.text.includes(hint.operation.target)) {
+          continue;
+        }
+        
         const result = decode(state.text, hints, [hint.name]);
         
         if (result.success && result.result && !state.visited.has(result.result)) {
