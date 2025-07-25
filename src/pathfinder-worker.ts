@@ -26,6 +26,41 @@ interface DFSState {
   visited: Set<string>;
 }
 
+// 優先度付きキューの実装
+class PriorityQueue<T> {
+  private items: { element: T; priority: number }[] = [];
+  
+  enqueue(element: T, priority: number): void {
+    const queueElement = { element, priority };
+    let added = false;
+    
+    // 優先度順に挿入
+    for (let i = 0; i < this.items.length; i++) {
+      if (queueElement.priority < this.items[i].priority) {
+        this.items.splice(i, 0, queueElement);
+        added = true;
+        break;
+      }
+    }
+    
+    if (!added) {
+      this.items.push(queueElement);
+    }
+  }
+  
+  dequeue(): T | undefined {
+    return this.items.shift()?.element;
+  }
+  
+  isEmpty(): boolean {
+    return this.items.length === 0;
+  }
+  
+  get length(): number {
+    return this.items.length;
+  }
+}
+
 interface BestAttempt {
   text: string;
   path: string[];
@@ -221,7 +256,7 @@ function decode(text: string, hints: Hint[], hintNames: string[]): CipherResult 
   };
 }
 
-// DFSによる経路探索（ジェネレータ版）
+// 距離優先探索による経路探索（ジェネレータ版）
 async function findPathDFS(start: string, target: string, hints: Hint[], maxDepth: number = 20): Promise<WorkerResult> {
   if (start === target) {
     return { type: 'result', found: true, path: [], steps: [start] };
@@ -233,14 +268,16 @@ async function findPathDFS(start: string, target: string, hints: Hint[], maxDept
   
   // ジェネレータ関数を使用して探索を実装
   function* dfsGenerator(): Generator<DFSState | null, void, unknown> {
-    const stack: DFSState[] = [{
+    const queue = new PriorityQueue<DFSState>();
+    const initialState: DFSState = {
       text: start,
       path: [],
       visited: new Set([start])
-    }];
+    };
+    queue.enqueue(initialState, 0);
     
-    while (stack.length > 0 && !foundPath) {
-      const state = stack.pop();
+    while (!queue.isEmpty() && !foundPath) {
+      const state = queue.dequeue();
       if (!state) continue;
       
       // 中断チェックのためにnullを返す
@@ -278,11 +315,15 @@ async function findPathDFS(start: string, target: string, hints: Hint[], maxDept
           const newVisited = new Set(state.visited);
           newVisited.add(result.result);
           
-          stack.push({
+          const newState: DFSState = {
             text: result.result,
             path: [...state.path, hint.name],
             visited: newVisited
-          });
+          };
+          
+          // 新しい状態の距離を計算して優先度付きキューに追加
+          const priority = heuristic(result.result, target);
+          queue.enqueue(newState, priority);
         }
       }
       
@@ -316,12 +357,13 @@ async function findPathDFS(start: string, target: string, hints: Hint[], maxDept
     if (done) break;
     
     // 完全一致が見つかったらすぐに返す
-    if (foundPath) {
+    const currentFoundPath = foundPath;
+    if (currentFoundPath !== null) {
       return {
         type: 'result',
         found: true,
-        path: foundPath.path,
-        steps: foundPath.steps
+        path: currentFoundPath.path,
+        steps: currentFoundPath.steps
       };
     }
     
@@ -343,12 +385,13 @@ async function findPathDFS(start: string, target: string, hints: Hint[], maxDept
     return { type: 'cancelled' };
   }
   
-  if (foundPath) {
+  const finalFoundPath = foundPath;
+  if (finalFoundPath !== null) {
     return {
       type: 'result',
       found: true,
-      path: foundPath.path,
-      steps: foundPath.steps
+      path: finalFoundPath.path,
+      steps: finalFoundPath.steps
     };
   }
   
