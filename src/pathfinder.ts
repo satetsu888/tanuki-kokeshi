@@ -40,6 +40,12 @@ class PriorityQueue<T> {
 
 // ヒューリスティック関数：文字列の類似度を計算
 function heuristic(current: string, target: string): number {
+  // レーベンシュタイン距離（編集距離）
+  const editDistance = levenshteinDistance(current, target);
+  
+  // Jaro-Winkler距離（0～1の値、1が完全一致）
+  const jaroWinkler = jaroWinklerDistance(current, target);
+  
   // 文字列長の差
   const lengthDiff = Math.abs(current.length - target.length);
   
@@ -56,18 +62,14 @@ function heuristic(current: string, target: string): number {
     freqDiff += Math.abs(currentCount - targetCount);
   }
   
-  // 共通接頭辞の長さ
-  let commonPrefix = 0;
-  for (let i = 0; i < Math.min(current.length, target.length); i++) {
-    if (current[i] === target[i]) {
-      commonPrefix++;
-    } else {
-      break;
-    }
-  }
+  // ハイブリッドヒューリスティック値を計算
+  // 編集距離を主要な指標とし、他の指標で調整
+  const score = editDistance * 2.0 +                    // 編集距離（重み2.0）
+                (1 - jaroWinkler) * 10.0 +              // Jaro-Winkler（重み10.0）
+                lengthDiff * 0.5 +                      // 長さの差（重み0.5）
+                freqDiff * 0.3;                         // 文字頻度差（重み0.3）
   
-  // ヒューリスティック値を計算（小さいほど良い）
-  return lengthDiff * 2 + freqDiff - commonPrefix * 0.5;
+  return score;
 }
 
 // 文字の出現頻度を計算
@@ -77,6 +79,109 @@ function getCharFrequency(text: string): Record<string, number> {
     freq[char] = (freq[char] || 0) + 1;
   }
   return freq;
+}
+
+// レーベンシュタイン距離（編集距離）を計算
+function levenshteinDistance(str1: string, str2: string): number {
+  const m = str1.length;
+  const n = str2.length;
+  
+  // 空文字列の場合
+  if (m === 0) return n;
+  if (n === 0) return m;
+  
+  // DPテーブルを作成
+  const dp: number[][] = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0));
+  
+  // 初期化
+  for (let i = 0; i <= m; i++) {
+    dp[i][0] = i;
+  }
+  for (let j = 0; j <= n; j++) {
+    dp[0][j] = j;
+  }
+  
+  // 動的計画法で最小編集距離を計算
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (str1[i - 1] === str2[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1];
+      } else {
+        dp[i][j] = Math.min(
+          dp[i - 1][j] + 1,     // 削除
+          dp[i][j - 1] + 1,     // 挿入
+          dp[i - 1][j - 1] + 1  // 置換
+        );
+      }
+    }
+  }
+  
+  return dp[m][n];
+}
+
+// Jaro距離を計算
+function jaroDistance(str1: string, str2: string): number {
+  const s1 = str1.length;
+  const s2 = str2.length;
+  
+  if (s1 === 0 && s2 === 0) return 1;
+  if (s1 === 0 || s2 === 0) return 0;
+  
+  // マッチングウィンドウの計算
+  const matchWindow = Math.max(s1, s2) / 2 - 1;
+  const matchWindowInt = Math.max(0, Math.floor(matchWindow));
+  
+  const s1Matches = new Array(s1).fill(false);
+  const s2Matches = new Array(s2).fill(false);
+  
+  let matches = 0;
+  let transpositions = 0;
+  
+  // マッチング文字を探す
+  for (let i = 0; i < s1; i++) {
+    const start = Math.max(0, i - matchWindowInt);
+    const end = Math.min(i + matchWindowInt + 1, s2);
+    
+    for (let j = start; j < end; j++) {
+      if (s2Matches[j] || str1[i] !== str2[j]) continue;
+      s1Matches[i] = true;
+      s2Matches[j] = true;
+      matches++;
+      break;
+    }
+  }
+  
+  if (matches === 0) return 0;
+  
+  // 転置をカウント
+  let k = 0;
+  for (let i = 0; i < s1; i++) {
+    if (!s1Matches[i]) continue;
+    while (!s2Matches[k]) k++;
+    if (str1[i] !== str2[k]) transpositions++;
+    k++;
+  }
+  
+  return (matches / s1 + matches / s2 + (matches - transpositions / 2) / matches) / 3;
+}
+
+// Jaro-Winkler距離を計算
+function jaroWinklerDistance(str1: string, str2: string, p: number = 0.1): number {
+  const jaro = jaroDistance(str1, str2);
+  
+  if (jaro < 0.7) return jaro;
+  
+  // 共通接頭辞の長さを計算（最大4文字）
+  let prefix = 0;
+  for (let i = 0; i < Math.min(str1.length, str2.length, 4); i++) {
+    if (str1[i] === str2[i]) {
+      prefix++;
+    } else {
+      break;
+    }
+  }
+  
+  return jaro + prefix * p * (1 - jaro);
 }
 
 // A*アルゴリズムによる経路探索
