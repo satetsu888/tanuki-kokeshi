@@ -1,5 +1,5 @@
 import { Hint } from './types';
-import { newHintsData } from './newHints';
+import { removeHintsData } from './removeHints';
 
 export const hints: Record<string, Hint> = {
   'はみがき': {
@@ -147,11 +147,11 @@ export const hints: Record<string, Hint> = {
 };
 
 
-// 新しいヒントデータから動的にヒントを生成
-function generateNewHints(): Record<string, Hint> {
+// 文字列除去ヒントデータから動的にヒントを生成
+function generateRemoveHints(): Record<string, Hint> {
   const generatedHints: Record<string, Hint> = {};
   
-  for (const [removeChar, reading, name, operation] of newHintsData) {
+  for (const [removeChar, reading, name, operation] of removeHintsData) {
     const hint: Hint = {
       name: name,
       reading: reading,
@@ -168,10 +168,10 @@ function generateNewHints(): Record<string, Hint> {
   return generatedHints;
 }
 
-// 既存のヒントと新しいヒントを結合
+// 既存のヒント（置換操作）と除去ヒントを結合
 const allHints = {
   ...hints,
-  ...generateNewHints()
+  ...generateRemoveHints()
 };
 
 export function getHint(hintName: string): Hint | undefined {
