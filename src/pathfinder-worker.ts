@@ -270,6 +270,7 @@ async function findPathDFS(start: string, target: string, hints: Hint[], maxDept
   const allStates = new Map<string, { text: string; path: string[]; distance: number }>();
   let foundPath: { path: string[]; steps: string[] } | null = null;
   let totalChecked = 0;
+  let currentBestDistance = Infinity; // 現在の最良距離を追跡
   
   // ジェネレータ関数を使用して探索を実装
   function* dfsGenerator(): Generator<DFSState | null, void, unknown> {
@@ -297,6 +298,17 @@ async function findPathDFS(start: string, target: string, hints: Hint[], maxDept
       totalChecked++;
       
       const distance = heuristic(state.text, target);
+      
+      // 距離の闾値による枝刈り: 現在の最良距離の2倍を超える場合はスキップ
+      if (distance > currentBestDistance * 2) {
+        continue;
+      }
+      
+      // 最良距離を更新
+      if (distance < currentBestDistance) {
+        currentBestDistance = distance;
+      }
+      
       const existingState = allStates.get(state.text);
       if (!existingState || existingState.path.length > state.path.length) {
         allStates.set(state.text, {
