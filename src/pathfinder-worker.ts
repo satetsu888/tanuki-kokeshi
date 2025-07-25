@@ -199,7 +199,7 @@ function jaroWinklerDistance(str1: string, str2: string, p: number = 0.1): numbe
 // ヒューリスティック関数
 function heuristic(current: string, target: string): number {
   const editDistance = levenshteinDistance(current, target);
-  const jaroWinkler = jaroWinklerDistance(current, target);
+  // const jaroWinkler = jaroWinklerDistance(current, target);
   const lengthDiff = Math.abs(current.length - target.length);
   
   const currentFreq = getCharFrequency(current);
@@ -215,7 +215,7 @@ function heuristic(current: string, target: string): number {
   }
   
   const score = editDistance * 2.0 + 
-                (1 - jaroWinkler) * 10.0 + 
+  //              (1 - jaroWinkler) * 10.0 + 
                 lengthDiff * 0.5 + 
                 freqDiff * 0.3;
   
