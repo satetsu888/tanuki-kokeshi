@@ -1,6 +1,6 @@
 import { getAllHints } from './hints';
 import { decode, encode } from './cipher';
-import { findPath } from './pathfinder';
+import { findPathDFS } from './pathfinder';
 
 type Mode = 'decode' | 'encode' | 'pathfind';
 
@@ -163,8 +163,8 @@ function executePathfind(): void {
   // 少し遅延させてUIを更新させる
   setTimeout(() => {
     try {
-      // 経路探索を実行
-      const result = findPath(start, target);
+      // 経路探索を実行（深さ優先探索）
+      const result = findPathDFS(start, target);
       
       // ローディング表示を終了
       loadingSection.style.display = 'none';

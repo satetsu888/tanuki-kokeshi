@@ -20,6 +20,12 @@ interface SearchResult {
   bestAttempts?: BestAttempt[];
 }
 
+interface DFSState {
+  text: string;
+  path: string[];
+  visited: Set<string>;
+}
+
 // 優先度付きキュー（簡易実装）
 class PriorityQueue<T> {
   private items: { item: T; priority: number }[] = [];
@@ -269,6 +275,109 @@ export function findPath(start: string, target: string, maxDepth: number = 1000)
   allStates.sort((a, b) => a.distance - b.distance);
   
   const bestAttempts: BestAttempt[] = allStates
+    .slice(0, 30)
+    .map(state => ({
+      text: state.text,
+      path: state.path,
+      distance: state.distance
+    }));
+  
+  return { found: false, bestAttempts };
+}
+
+// 深さ優先探索による経路探索
+// A*とは異なり、一時的に目標から遠ざかる経路も探索可能
+// より多様な経路を発見できるが、最適解の保証はない
+export function findPathDFS(start: string, target: string, maxDepth: number = 20): SearchResult {
+  if (start === target) {
+    return { found: true, path: [], steps: [start] };
+  }
+  
+  const hints = getAllHints();
+  const allStates = new Map<string, { text: string; path: string[]; distance: number }>();
+  const foundPaths: { path: string[]; steps: string[] }[] = [];
+  
+  // DFSの実装
+  function dfs(state: DFSState, depth: number): void {
+    if (depth > maxDepth) {
+      return;
+    }
+    
+    // 現在の状態を記録
+    const distance = heuristic(state.text, target);
+    const existingState = allStates.get(state.text);
+    if (!existingState || existingState.path.length > state.path.length) {
+      allStates.set(state.text, {
+        text: state.text,
+        path: [...state.path],
+        distance
+      });
+    }
+    
+    // ゴール判定
+    if (state.text === target) {
+      const steps = reconstructPath(start, state.path);
+      foundPaths.push({ path: [...state.path], steps });
+      return;
+    }
+    
+    // 各ヒントを適用して探索を続ける
+    for (const hint of hints) {
+      const result = decode(state.text, [hint.name]);
+      
+      if (result.success && result.result && !state.visited.has(result.result)) {
+        const newVisited = new Set(state.visited);
+        newVisited.add(result.result);
+        
+        const newState: DFSState = {
+          text: result.result,
+          path: [...state.path, hint.name],
+          visited: newVisited
+        };
+        
+        dfs(newState, depth + 1);
+      }
+    }
+  }
+  
+  // 経路を再構築
+  function reconstructPath(startText: string, path: string[]): string[] {
+    const steps = [startText];
+    let tempText = startText;
+    for (const hintName of path) {
+      const result = decode(tempText, [hintName]);
+      if (result.success && result.result) {
+        tempText = result.result;
+        steps.push(tempText);
+      }
+    }
+    return steps;
+  }
+  
+  // 初期状態から探索開始
+  const initialState: DFSState = {
+    text: start,
+    path: [],
+    visited: new Set([start])
+  };
+  
+  dfs(initialState, 0);
+  
+  // 最短経路を選択
+  if (foundPaths.length > 0) {
+    foundPaths.sort((a, b) => a.path.length - b.path.length);
+    return {
+      found: true,
+      path: foundPaths[0].path,
+      steps: foundPaths[0].steps
+    };
+  }
+  
+  // 経路が見つからなかった場合、最も近い状態のベスト30を返す
+  const allStatesList = Array.from(allStates.values());
+  allStatesList.sort((a, b) => a.distance - b.distance);
+  
+  const bestAttempts: BestAttempt[] = allStatesList
     .slice(0, 30)
     .map(state => ({
       text: state.text,

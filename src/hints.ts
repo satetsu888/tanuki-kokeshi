@@ -288,9 +288,7 @@ function generateNewHints(): Record<string, Hint> {
       description: `「${removeChar}」を${operation}`,
     };
 
-    // 同じ読みのヒントが複数ある場合は、名前で区別
-    const key = reading === name ? reading : `${reading}_${name}`;
-    generatedHints[key] = hint;
+    generatedHints[name] = hint;
   }
   
   return generatedHints;
