@@ -299,8 +299,8 @@ async function findPathDFS(start: string, target: string, hints: Hint[], maxDept
       
       const distance = heuristic(state.text, target);
       
-      // 距離の闾値による枝刈り: 現在の最良距離の2倍を超える場合はスキップ
-      if (distance > currentBestDistance * 2) {
+      // 距離の闾値による枝刈り: 現在の最良距離の10倍を超える場合はスキップ
+      if (distance > currentBestDistance * 10) {
         continue;
       }
       
