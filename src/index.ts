@@ -1,5 +1,6 @@
 import { getAllHints } from './hints';
 import { encode } from './cipher';
+import { Hint, HintGroup } from './types';
 
 type Mode = 'encode' | 'pathfind';
 
@@ -48,34 +49,157 @@ const modeRadios = document.querySelectorAll('input[name="mode"]') as NodeListOf
 const encodeModeElements = document.querySelectorAll('.encode-mode') as NodeListOf<HTMLElement>;
 const pathfindModeElements = document.querySelectorAll('.pathfind-mode') as NodeListOf<HTMLElement>;
 
+// グループ名の定義
+const groupNames: Record<HintGroup, string> = {
+  'A': 'なぞときでよく出てくる単語',
+  'B': '日常的に使われるよく知られた単語',
+  'C': '普段はあまり使わない単語',
+  'D': '少し一般的な日本語と呼ぶには無理がある単語'
+};
+
 // ヒントチェックボックスを作成
 function populateHints(): void {
   const hints = getAllHints();
   
+  // グループごとにヒントを分類
+  const hintsByGroup: Record<HintGroup, Hint[]> = {
+    'A': [],
+    'B': [],
+    'C': [],
+    'D': []
+  };
+  
   hints.forEach(hint => {
-    const checkboxContainer = document.createElement('div');
-    checkboxContainer.className = 'hint-checkbox';
-    
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.id = `hint-${hint.name}`;
-    checkbox.value = hint.name;
-    checkbox.addEventListener('change', updateSelectedHints);
-    
-    const label = document.createElement('label');
-    label.htmlFor = `hint-${hint.name}`;
-    label.innerHTML = `${hint.name}<span class="hint-description">（${hint.description}）</span>`;
-    
-    checkboxContainer.appendChild(checkbox);
-    checkboxContainer.appendChild(label);
-    hintCheckboxesContainer.appendChild(checkboxContainer);
+    hintsByGroup[hint.group].push(hint);
   });
+  
+  // 各グループのUIを作成
+  (['A', 'B', 'C', 'D'] as HintGroup[]).forEach(group => {
+    if (hintsByGroup[group].length === 0) return;
+    
+    const groupContainer = document.createElement('div');
+    groupContainer.className = `hint-group group-${group} collapsed`;
+    groupContainer.dataset.group = group;
+    
+    // グループヘッダー
+    const groupHeader = document.createElement('div');
+    groupHeader.className = 'hint-group-header';
+    
+    const groupCheckbox = document.createElement('input');
+    groupCheckbox.type = 'checkbox';
+    groupCheckbox.className = 'hint-group-checkbox';
+    groupCheckbox.id = `group-${group}`;
+    groupCheckbox.addEventListener('click', (e) => handleGroupCheckbox(group, e));
+    
+    const groupTitle = document.createElement('div');
+    groupTitle.className = 'hint-group-title';
+    groupTitle.textContent = groupNames[group];
+    
+    const groupToggle = document.createElement('div');
+    groupToggle.className = 'hint-group-toggle';
+    groupToggle.textContent = '▼';
+    
+    groupHeader.appendChild(groupCheckbox);
+    groupHeader.appendChild(groupTitle);
+    groupHeader.appendChild(groupToggle);
+    
+    // クリックで展開/折りたたみ
+    groupHeader.addEventListener('click', (e) => {
+      if ((e.target as HTMLElement).tagName !== 'INPUT') {
+        groupContainer.classList.toggle('collapsed');
+      }
+    });
+    
+    // グループ内のヒント
+    const groupItems = document.createElement('div');
+    groupItems.className = 'hint-group-items';
+    
+    hintsByGroup[group].forEach(hint => {
+      const checkboxContainer = document.createElement('div');
+      checkboxContainer.className = 'hint-checkbox';
+      
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.id = `hint-${hint.name}`;
+      checkbox.value = hint.name;
+      checkbox.addEventListener('change', () => {
+        updateSelectedHints();
+        updateGroupCheckboxState(group);
+      });
+      
+      const label = document.createElement('label');
+      label.htmlFor = `hint-${hint.name}`;
+      label.innerHTML = `${hint.name}<span class="hint-description">（${hint.description}）</span>`;
+      
+      checkboxContainer.appendChild(checkbox);
+      checkboxContainer.appendChild(label);
+      groupItems.appendChild(checkboxContainer);
+    });
+    
+    groupContainer.appendChild(groupHeader);
+    groupContainer.appendChild(groupItems);
+    hintCheckboxesContainer.appendChild(groupContainer);
+  });
+}
+
+// グループチェックボックスのハンドラ
+function handleGroupCheckbox(group: HintGroup, event: Event): void {
+  const checkbox = event.target as HTMLInputElement;
+  const groupContainer = document.querySelector(`.hint-group[data-group="${group}"]`);
+  if (!groupContainer) return;
+  
+  const hintCheckboxes = groupContainer.querySelectorAll('.hint-group-items input[type="checkbox"]');
+  
+  let newState: boolean;
+  
+  // チェックボックスがクリックされた後の状態を考慮
+  if (checkbox.classList.contains('partial')) {
+    // 部分選択状態からクリック → 全て選択
+    newState = true;
+    checkbox.checked = true;
+  } else {
+    // 通常のチェックボックスの動作に従う
+    newState = checkbox.checked;
+  }
+  
+  // partialクラスを削除
+  checkbox.classList.remove('partial');
+  
+  // 各ヒントのチェックボックスを更新
+  hintCheckboxes.forEach(hintCheckbox => {
+    (hintCheckbox as HTMLInputElement).checked = newState;
+  });
+  
+  updateSelectedHints();
+}
+
+// グループチェックボックスの状態を更新
+function updateGroupCheckboxState(group: HintGroup): void {
+  const groupContainer = document.querySelector(`.hint-group[data-group="${group}"]`);
+  if (!groupContainer) return;
+  
+  const groupCheckbox = groupContainer.querySelector('.hint-group-checkbox') as HTMLInputElement;
+  const hintCheckboxes = groupContainer.querySelectorAll('.hint-group-items input[type="checkbox"]');
+  
+  const total = hintCheckboxes.length;
+  const checked = Array.from(hintCheckboxes).filter(cb => (cb as HTMLInputElement).checked).length;
+  
+  groupCheckbox.classList.remove('partial');
+  
+  if (checked === 0) {
+    groupCheckbox.checked = false;
+  } else if (checked === total) {
+    groupCheckbox.checked = true;
+  } else {
+    groupCheckbox.checked = false;
+    groupCheckbox.classList.add('partial');
+  }
 }
 
 // 選択されたヒントを更新
 function updateSelectedHints(): void {
   selectedHints = [];
-  const checkboxes = hintCheckboxesContainer.querySelectorAll('input[type="checkbox"]:checked');
+  const checkboxes = hintCheckboxesContainer.querySelectorAll('.hint-group-items input[type="checkbox"]:checked');
   
   checkboxes.forEach(checkbox => {
     selectedHints.push((checkbox as HTMLInputElement).value);

@@ -98,26 +98,163 @@ input[type="text"]:focus, select:focus {
 }
 
 .hint-checkboxes {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 10px;
     padding: 10px;
     background-color: #f8f9fa;
     border-radius: 5px;
-    max-height: 300px;
-    overflow-y: auto;
+}
+
+/* グループヘッダー */
+.hint-group {
+    margin-bottom: 10px;
+    border: 1px solid #e0e0e0;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.hint-group-header {
+    display: flex;
+    align-items: center;
+    padding: 12px 15px;
+    background-color: #f8f9fa;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.2s;
+}
+
+.hint-group-header:hover {
+    background-color: #e9ecef;
+}
+
+.hint-group-checkbox {
+    margin-right: 10px;
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    position: relative;
+    -webkit-appearance: none;
+    appearance: none;
+    background-color: white;
+    border: 2px solid #999;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.hint-group-checkbox:checked {
+    background-color: #3498db;
+    border-color: #3498db;
+}
+
+.hint-group-checkbox:checked::after {
+    content: '';
+    position: absolute;
+    width: 5px;
+    height: 9px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+    top: 2px;
+    left: 5px;
+}
+
+/* 部分選択状態 */
+.hint-group-checkbox.partial {
+    background-color: #3498db;
+    border-color: #3498db;
+}
+
+.hint-group-checkbox.partial::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 10px;
+    height: 2px;
+    background-color: white;
+}
+
+.hint-group-title {
+    flex: 1;
+    font-weight: bold;
+    font-size: 1rem;
+}
+
+.hint-group-toggle {
+    margin-left: 10px;
+    font-size: 1.2rem;
+    color: #666;
+    transition: transform 0.2s;
+}
+
+.hint-group.collapsed .hint-group-toggle {
+    transform: rotate(-90deg);
+}
+
+.hint-group-description {
+    font-size: 0.85rem;
+    color: #7f8c8d;
+    margin-left: 5px;
+}
+
+.hint-group-items {
+    padding: 10px 15px;
+    background-color: #fafafa;
+    transition: all 0.3s ease-out;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 5px;
+}
+
+.hint-group.collapsed .hint-group-items {
+    display: none;
+}
+
+/* グループごとの色分け */
+.hint-group.group-A .hint-group-header {
+    background-color: #fff3cd;
+}
+
+.hint-group.group-A .hint-group-header:hover {
+    background-color: #ffe8a1;
+}
+
+.hint-group.group-B .hint-group-header {
+    background-color: #d1ecf1;
+}
+
+.hint-group.group-B .hint-group-header:hover {
+    background-color: #b8daff;
+}
+
+.hint-group.group-C .hint-group-header {
+    background-color: #e2e3e5;
+}
+
+.hint-group.group-C .hint-group-header:hover {
+    background-color: #d6d8db;
+}
+
+.hint-group.group-D .hint-group-header {
+    background-color: #f8d7da;
+}
+
+.hint-group.group-D .hint-group-header:hover {
+    background-color: #f5c6cb;
 }
 
 .hint-checkbox {
     display: flex;
     align-items: center;
     cursor: pointer;
+    padding: 3px 5px;
 }
 
 .hint-checkbox input[type="checkbox"] {
-    width: 18px;
-    height: 18px;
-    margin-right: 10px;
+    width: 16px;
+    height: 16px;
+    margin-right: 8px;
     cursor: pointer;
 }
 
@@ -125,13 +262,14 @@ input[type="text"]:focus, select:focus {
     cursor: pointer;
     font-weight: normal;
     margin-bottom: 0;
+    font-size: 0.9rem;
 }
 
 .hint-description {
     display: inline-block;
     margin-left: 5px;
     color: #7f8c8d;
-    font-size: 0.9rem;
+    font-size: 0.8rem;
 }
 
 .selected-hints {
