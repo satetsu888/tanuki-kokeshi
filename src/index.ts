@@ -228,15 +228,8 @@ function displaySelectedHints(): void {
   if (selectedHints.length > 0) {
     const label = document.createElement('div');
     label.className = 'selected-hints-label';
-    label.textContent = '選択中のヒント：';
+    label.textContent = `選択中のヒント数：${selectedHints.length}個`;
     selectedHintsContainer.appendChild(label);
-    
-    selectedHints.forEach(hintName => {
-      const hintItem = document.createElement('span');
-      hintItem.className = 'selected-hint-item';
-      hintItem.textContent = hintName;
-      selectedHintsContainer.appendChild(hintItem);
-    });
   } else {
     selectedHintsContainer.textContent = 'ヒントが選択されていません';
   }
@@ -317,10 +310,14 @@ function executeDecodeEncode(): void {
           <p class="problem-content">${result.result}</p>
         </div>
         <div class="used-hints">
-          <h3>使用したヒント</h3>
+          <h3>ヒント</h3>
           <ul class="hint-list">
             ${hintsToUse.map(hint => `<li>${hint}</li>`).join('')}
           </ul>
+        </div>
+        <div class="answer-text">
+          <h3>答え</h3>
+          <p class="answer-content">${text}</p>
         </div>
       </div>
     `;
