@@ -1,5 +1,7 @@
 export type OperationType = 'remove' | 'replace';
 
+export type HintGroup = 'A' | 'B' | 'C' | 'D';
+
 export interface HintOperation {
   type: OperationType;
   target: string;
@@ -11,6 +13,7 @@ export interface Hint {
   reading: string;
   operation: HintOperation;
   description: string;
+  group: HintGroup;
 }
 
 export interface CipherResult {

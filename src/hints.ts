@@ -6,7 +6,7 @@ import { replaceHintsData } from './replaceHints';
 function generateRemoveHints(): Record<string, Hint> {
   const generatedHints: Record<string, Hint> = {};
   
-  for (const [removeChar, reading, name, operation] of removeHintsData) {
+  for (const [removeChar, reading, name, operation, group] of removeHintsData) {
     const hint: Hint = {
       name: name,
       reading: reading,
@@ -15,6 +15,7 @@ function generateRemoveHints(): Record<string, Hint> {
         target: removeChar,
       },
       description: `「${removeChar}」を${operation}`,
+      group: group,
     };
 
     generatedHints[name] = hint;
@@ -27,7 +28,7 @@ function generateRemoveHints(): Record<string, Hint> {
 function generateReplaceHints(): Record<string, Hint> {
   const generatedHints: Record<string, Hint> = {};
   
-  for (const [target, replacement, reading, name, description] of replaceHintsData) {
+  for (const [target, replacement, reading, name, description, group] of replaceHintsData) {
     const hint: Hint = {
       name: name,
       reading: reading,
@@ -37,6 +38,7 @@ function generateReplaceHints(): Record<string, Hint> {
         replacement: replacement,
       },
       description: description,
+      group: group,
     };
 
     generatedHints[name] = hint;
