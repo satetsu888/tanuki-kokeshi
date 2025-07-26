@@ -53,10 +53,10 @@ const hintCountValue = document.getElementById('hint-count-value') as HTMLSpanEl
 
 // グループ名の定義
 const groupNames: Record<HintGroup, string> = {
-  'A': 'なぞときでよく出てくる単語',
-  'B': '日常的に使われるよく知られた単語',
-  'C': '普段はあまり使わない単語',
-  'D': '少し一般的な日本語と呼ぶには無理がある単語'
+  'A': 'なぞときでよく出てくるもの',
+  'B': '日常的によく使われるもの',
+  'C': '普段はあまり使わないもの',
+  'D': '一般的な日本語と呼ぶには少し無理があるもの'
 };
 
 // ヒントチェックボックスを作成
@@ -99,7 +99,8 @@ function populateHints(): void {
     
     const groupTitle = document.createElement('div');
     groupTitle.className = 'hint-group-title';
-    groupTitle.textContent = groupNames[group];
+    const hintCount = hintsByGroup[group].length;
+    groupTitle.textContent = `${groupNames[group]} (${hintCount}単語)`;
     
     const groupToggle = document.createElement('div');
     groupToggle.className = 'hint-group-toggle';
@@ -228,7 +229,7 @@ function displaySelectedHints(): void {
   if (selectedHints.length > 0) {
     const label = document.createElement('div');
     label.className = 'selected-hints-label';
-    label.textContent = `選択中のヒント数：${selectedHints.length}個`;
+    label.textContent = `選択中のヒント：${selectedHints.length} 単語`;
     selectedHintsContainer.appendChild(label);
   } else {
     selectedHintsContainer.textContent = 'ヒントが選択されていません';
@@ -247,7 +248,7 @@ function switchMode(mode: Mode): void {
   } else {
     encodeModeElements.forEach(el => el.style.display = 'block');
     pathfindModeElements.forEach(el => el.style.display = 'none');
-    executeBtn.textContent = '実行';
+    executeBtn.textContent = '作成';
     inputText.placeholder = '答えを入力してください';
   }
   
