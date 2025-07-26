@@ -10,7 +10,7 @@
     <div class="container">
         <header>
             <h1>たぬきこけし</h1>
-            <p class="subtitle">日本語のなぞなぞ・暗号遊び</p>
+            <p class="subtitle">なぞとき・暗号遊び</p>
         </header>
 
         <main>
@@ -26,6 +26,14 @@
             </div>
 
             <div class="input-section">
+                <div class="mode-description encode-mode">
+                    <p>なぞときの答えを入力してヒントとして利用する単語を選択すると問題を生成します</p>
+                </div>
+
+                <div class="mode-description pathfind-mode" style="display: none;">
+                    <p>最初の文字列から目的となる文字列へヒントを適用して達できるかを探索します</p>
+                </div>
+
                 <div class="form-group encode-mode">
                     <label for="input-text">答え：</label>
                     <input type="text" id="input-text" placeholder="文字を入力してください">
