@@ -25,21 +25,22 @@ export function encode(answer: string, hintNames: string[]): CipherResult {
 
     switch (hint.operation.type) {
       case 'remove':
-        // 逆操作: 文字を追加する（適切な位置に）
+        // 逆操作: 文字を追加する（1~3箇所にランダムに）
         const chars = result.split('');
-        const insertPositions: number[] = [];
+        const insertCount = Math.floor(Math.random() * 3) + 1; // 1~3個
+        const positions = new Set<number>();
         
-        // ランダムな位置に挿入（ここでは均等に分散）
-        const insertCount = Math.floor(chars.length / 2) + 1;
-        for (let j = 0; j < insertCount; j++) {
-          const pos = Math.floor(j * chars.length / insertCount);
-          insertPositions.push(pos);
+        // ランダムな位置を選択（重複なし）
+        while (positions.size < insertCount) {
+          // 文字の間の位置（0 ~ chars.length）を選択
+          const pos = Math.floor(Math.random() * (chars.length + 1));
+          positions.add(pos);
         }
         
         // 逆順でソートして後ろから挿入
-        insertPositions.sort((a, b) => b - a);
-        insertPositions.forEach(pos => {
-          chars.splice(pos + 1, 0, hint.operation.target);
+        const sortedPositions = Array.from(positions).sort((a, b) => b - a);
+        sortedPositions.forEach(pos => {
+          chars.splice(pos, 0, hint.operation.target);
         });
         
         result = chars.join('');
