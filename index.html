@@ -16,11 +16,7 @@
         <main>
             <div class="mode-selector">
                 <label>
-                    <input type="radio" name="mode" value="decode" checked>
-                    問題を解く
-                </label>
-                <label>
-                    <input type="radio" name="mode" value="encode">
+                    <input type="radio" name="mode" value="encode" checked>
                     問題を作る
                 </label>
                 <label>
@@ -30,11 +26,8 @@
             </div>
 
             <div class="input-section">
-                <div class="form-group decode-encode-mode">
-                    <label for="input-text">
-                        <span class="decode-label">問題：</span>
-                        <span class="encode-label" style="display: none;">答え：</span>
-                    </label>
+                <div class="form-group encode-mode">
+                    <label for="input-text">答え：</label>
                     <input type="text" id="input-text" placeholder="文字を入力してください">
                 </div>
 
@@ -48,7 +41,7 @@
                     <input type="text" id="target-text" placeholder="変換先の文章">
                 </div>
 
-                <div class="form-group decode-encode-mode">
+                <div class="form-group encode-mode">
                     <label>ヒント（複数選択可）：</label>
                     <div id="hint-checkboxes" class="hint-checkboxes"></div>
                     <div id="selected-hints" class="selected-hints"></div>

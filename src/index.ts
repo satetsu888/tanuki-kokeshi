@@ -1,7 +1,7 @@
 import { getAllHints } from './hints';
-import { decode, encode } from './cipher';
+import { encode } from './cipher';
 
-type Mode = 'decode' | 'encode' | 'pathfind';
+type Mode = 'encode' | 'pathfind';
 
 interface BestAttempt {
   text: string;
@@ -27,7 +27,7 @@ interface WorkerResult {
   };
 }
 
-let currentMode: Mode = 'decode';
+let currentMode: Mode = 'encode';
 let selectedHints: string[] = [];
 let pathfinderWorker: Worker | null = null;
 
@@ -45,9 +45,7 @@ const progressBarFill = document.getElementById('progress-bar-fill') as HTMLDivE
 const progressPercentage = document.getElementById('progress-percentage') as HTMLSpanElement;
 const cancelBtn = document.getElementById('cancel-btn') as HTMLButtonElement;
 const modeRadios = document.querySelectorAll('input[name="mode"]') as NodeListOf<HTMLInputElement>;
-const decodeLabel = document.querySelector('.decode-label') as HTMLSpanElement;
-const encodeLabel = document.querySelector('.encode-label') as HTMLSpanElement;
-const decodeEncodeModeElements = document.querySelectorAll('.decode-encode-mode') as NodeListOf<HTMLElement>;
+const encodeModeElements = document.querySelectorAll('.encode-mode') as NodeListOf<HTMLElement>;
 const pathfindModeElements = document.querySelectorAll('.pathfind-mode') as NodeListOf<HTMLElement>;
 
 // ヒントチェックボックスを作成
@@ -113,23 +111,14 @@ function switchMode(mode: Mode): void {
   
   // UI要素の表示/非表示を切り替え
   if (mode === 'pathfind') {
-    decodeEncodeModeElements.forEach(el => el.style.display = 'none');
+    encodeModeElements.forEach(el => el.style.display = 'none');
     pathfindModeElements.forEach(el => el.style.display = 'block');
     executeBtn.textContent = '経路を探す';
   } else {
-    decodeEncodeModeElements.forEach(el => el.style.display = 'block');
+    encodeModeElements.forEach(el => el.style.display = 'block');
     pathfindModeElements.forEach(el => el.style.display = 'none');
     executeBtn.textContent = '実行';
-    
-    if (mode === 'decode') {
-      decodeLabel.style.display = 'inline';
-      encodeLabel.style.display = 'none';
-      inputText.placeholder = '問題を入力してください';
-    } else {
-      decodeLabel.style.display = 'none';
-      encodeLabel.style.display = 'inline';
-      inputText.placeholder = '答えを入力してください';
-    }
+    inputText.placeholder = '答えを入力してください';
   }
   
   // 結果とローディングをクリア
@@ -147,7 +136,7 @@ function execute(): void {
   }
 }
 
-// デコード/エンコード実行
+// エンコード実行
 function executeDecodeEncode(): void {
   const text = inputText.value.trim();
   
@@ -161,9 +150,7 @@ function executeDecodeEncode(): void {
     return;
   }
   
-  const result = currentMode === 'decode' 
-    ? decode(text, selectedHints)
-    : encode(text, selectedHints);
+  const result = encode(text, selectedHints);
   
   if (result.success && result.result) {
     resultContent.textContent = result.result;
@@ -201,7 +188,7 @@ function executePathfind(): void {
   pathfinderWorker = new Worker(new URL('./pathfinder-worker-engine.ts', import.meta.url), { type: 'module' });
   
   // Initialize WASM in the worker
-  pathfinderWorker.postMessage({ type: 'init' });
+  pathfinderWorker!.postMessage({ type: 'init' });
   
   // Worker からのメッセージを処理
   pathfinderWorker.onmessage = (event) => {
@@ -210,7 +197,7 @@ function executePathfind(): void {
     if (result.type === 'initialized') {
       // WASM initialization complete, now start the search
       console.log('WASM initialized, starting search with:', { start, target });
-      pathfinderWorker.postMessage({
+      pathfinderWorker!.postMessage({
         type: 'search',
         start: start,
         target: target,
@@ -403,7 +390,7 @@ function setupEventListeners(): void {
 function init(): void {
   populateHints();
   setupEventListeners();
-  switchMode('decode');
+  switchMode('encode');
   displaySelectedHints();
 }
 

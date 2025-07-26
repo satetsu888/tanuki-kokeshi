@@ -1,45 +1,6 @@
 import { CipherResult } from './types';
 import { getHint } from './hints';
 
-export function decode(puzzle: string, hintNames: string[]): CipherResult {
-  if (hintNames.length === 0) {
-    return {
-      success: false,
-      error: 'ヒントを選択してください'
-    };
-  }
-
-  let result = puzzle;
-
-  // 複数のヒントを順番に適用
-  for (const hintName of hintNames) {
-    const hint = getHint(hintName);
-    
-    if (!hint) {
-      return {
-        success: false,
-        error: `ヒント「${hintName}」が見つかりません`
-      };
-    }
-
-    switch (hint.operation.type) {
-      case 'remove':
-        result = result.split(hint.operation.target).join('');
-        break;
-      case 'replace':
-        if (hint.operation.replacement) {
-          result = result.split(hint.operation.target).join(hint.operation.replacement);
-        }
-        break;
-    }
-  }
-
-  return {
-    success: true,
-    result
-  };
-}
-
 export function encode(answer: string, hintNames: string[]): CipherResult {
   if (hintNames.length === 0) {
     return {
