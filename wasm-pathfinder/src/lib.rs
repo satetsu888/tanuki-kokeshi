@@ -76,6 +76,10 @@ pub struct ProgressUpdate {
     pub current_best_distance: f64,
     pub current_best_text: String,
     pub queue_size: usize,
+    pub progress_percentage: f64,
+    pub estimated_total_states: usize,
+    pub depth_progress: f64,
+    pub max_depth_reached: usize,
 }
 
 #[wasm_bindgen]
@@ -94,6 +98,8 @@ pub struct PathfinderEngine {
     best_attempts: Vec<BestAttempt>,
     best_distance: f64,
     states_explored: usize,
+    estimated_total_states: usize,
+    max_depth_reached: usize,
     
     // Caching
     distance_cache: HashMap<(String, String), f64>,
@@ -110,6 +116,10 @@ impl PathfinderEngine {
         let hints: Vec<Hint> = serde_json::from_str(hints_json)
             .map_err(|e| JsValue::from_str(&format!("Failed to parse hints: {}", e)))?;
         
+        // Estimate total search space
+        let hints_count = hints.len();
+        let estimated_total = estimate_search_space(hints_count, max_depth);
+        
         let mut engine = PathfinderEngine {
             queue: BinaryHeap::new(),
             visited: HashSet::new(),
@@ -120,6 +130,8 @@ impl PathfinderEngine {
             best_attempts: Vec::new(),
             best_distance: f64::INFINITY,
             states_explored: 0,
+            estimated_total_states: estimated_total,
+            max_depth_reached: 0,
             distance_cache: HashMap::new(),
             decode_cache: HashMap::new(),
         };
@@ -154,6 +166,11 @@ impl PathfinderEngine {
             
             let current = self.queue.pop().unwrap();
             self.states_explored += 1;
+            
+            // Track max depth reached
+            if current.path.len() > self.max_depth_reached {
+                self.max_depth_reached = current.path.len();
+            }
             
             // Check if we found the target
             if current.text == self.target {
@@ -198,6 +215,19 @@ impl PathfinderEngine {
             serde_wasm_bindgen::to_value(&result).unwrap()
         } else {
             // Return progress update
+            let progress_percentage = calculate_progress_percentage(
+                self.states_explored,
+                self.queue.len(),
+                self.estimated_total_states
+            );
+            
+            // Calculate depth-based progress
+            let depth_progress = if self.max_depth > 0 {
+                (self.max_depth_reached as f64 / self.max_depth as f64 * 100.0).min(99.9)
+            } else {
+                0.0
+            };
+            
             let progress = ProgressUpdate {
                 states_explored: self.states_explored,
                 current_best_distance: self.best_distance,
@@ -205,6 +235,10 @@ impl PathfinderEngine {
                     .map(|a| a.text.clone())
                     .unwrap_or_default(),
                 queue_size: self.queue.len(),
+                progress_percentage,
+                estimated_total_states: self.estimated_total_states,
+                depth_progress,
+                max_depth_reached: self.max_depth_reached,
             };
             serde_wasm_bindgen::to_value(&progress).unwrap()
         }
@@ -424,6 +458,92 @@ impl PathfinderEngine {
             _ => None,
         }
     }
+}
+
+// Helper functions
+
+// Estimate the total search space based on hints and depth
+fn estimate_search_space(hints_count: usize, max_depth: usize) -> usize {
+    // More realistic estimation based on observed patterns:
+    // - Most hints only apply to specific patterns
+    // - Visited state pruning is very effective
+    // - Branching factor decreases with depth
+    
+    if hints_count == 0 || max_depth == 0 {
+        return 1;
+    }
+    
+    // Start with a much lower branching factor
+    // In practice, only 10-20% of hints apply to any given state
+    let initial_branching = (hints_count as f64 * 0.15).max(1.0);
+    
+    // Branching factor decreases with depth due to:
+    // - More states being already visited
+    // - Convergence toward the target
+    let mut total = 1.0;
+    let mut states_at_depth = 1.0;
+    let mut current_branching = initial_branching;
+    
+    for _depth in 1..=max_depth {
+        // Reduce branching factor as we go deeper
+        // This models the convergence effect
+        current_branching *= 0.8;
+        current_branching = current_branching.max(0.5);
+        
+        states_at_depth *= current_branching;
+        total += states_at_depth;
+        
+        // Cap the growth to prevent unrealistic estimates
+        if states_at_depth > 100000.0 {
+            // If we're estimating more than 100k states at a single depth,
+            // we're probably overestimating
+            break;
+        }
+    }
+    
+    // Much smaller buffer since our estimate is more conservative
+    (total * 1.1).min(1000000.0) as usize // Cap at 1 million max
+}
+
+// Calculate progress percentage
+fn calculate_progress_percentage(
+    states_explored: usize,
+    queue_size: usize,
+    estimated_total: usize
+) -> f64 {
+    // If no states left to explore, we're essentially done
+    if queue_size == 0 && states_explored > 0 {
+        return 99.9; // Not 100% to avoid confusion before final result
+    }
+    
+    if estimated_total == 0 {
+        return 0.0;
+    }
+    
+    // Consider both explored states and remaining queue
+    let effective_progress = states_explored;
+    let mut percentage = effective_progress as f64 / estimated_total as f64 * 100.0;
+    
+    // Adaptive progress: if we've explored more than our estimate,
+    // scale the percentage based on queue size
+    if states_explored > estimated_total {
+        // We underestimated - use queue size as indicator
+        if queue_size < 100 {
+            percentage = 90.0 + (100.0 - queue_size as f64) * 0.099;
+        } else {
+            percentage = 50.0 + (states_explored as f64 / (states_explored + queue_size) as f64) * 40.0;
+        }
+    }
+    
+    // Ensure reasonable bounds
+    percentage = percentage.max(0.1).min(99.9);
+    
+    // Show at least 1% after exploring reasonable number of states
+    if percentage < 1.0 && states_explored > 10 {
+        return 1.0;
+    }
+    
+    percentage
 }
 
 #[wasm_bindgen]

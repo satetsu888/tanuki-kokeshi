@@ -18,6 +18,10 @@ interface WorkerResult {
   steps?: string[];
   bestAttempts?: any[];
   progress?: number;
+  progressPercentage?: number;
+  estimatedTotal?: number;
+  depthProgress?: number;
+  maxDepthReached?: number;
   currentBest?: {
     text: string;
     distance: number;
@@ -96,6 +100,10 @@ async function runSearch(
       self.postMessage({
         type: 'progress',
         progress: result.states_explored,
+        progressPercentage: result.progress_percentage,
+        estimatedTotal: result.estimated_total_states,
+        depthProgress: result.depth_progress,
+        maxDepthReached: result.max_depth_reached,
         currentBest: result.current_best_text ? {
           text: result.current_best_text,
           distance: result.current_best_distance || 0,

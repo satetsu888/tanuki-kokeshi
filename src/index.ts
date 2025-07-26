@@ -16,6 +16,10 @@ interface WorkerResult {
   steps?: string[];
   bestAttempts?: BestAttempt[];
   progress?: number;
+  progressPercentage?: number;
+  estimatedTotal?: number;
+  depthProgress?: number;
+  maxDepthReached?: number;
   currentBest?: {
     text: string;
     distance: number;
@@ -37,6 +41,8 @@ const resultSection = document.getElementById('result-section') as HTMLDivElemen
 const resultContent = document.getElementById('result-content') as HTMLDivElement;
 const loadingSection = document.getElementById('loading-section') as HTMLDivElement;
 const loadingProgress = document.getElementById('loading-progress') as HTMLParagraphElement;
+const progressBarFill = document.getElementById('progress-bar-fill') as HTMLDivElement;
+const progressPercentage = document.getElementById('progress-percentage') as HTMLSpanElement;
 const cancelBtn = document.getElementById('cancel-btn') as HTMLButtonElement;
 const modeRadios = document.querySelectorAll('input[name="mode"]') as NodeListOf<HTMLInputElement>;
 const decodeLabel = document.querySelector('.decode-label') as HTMLSpanElement;
@@ -183,6 +189,10 @@ function executePathfind(): void {
   executeBtn.disabled = true;
   loadingProgress.textContent = '';
   
+  // Reset progress bar
+  progressBarFill.style.width = '0%';
+  progressPercentage.textContent = '0%';
+  
   // Web Worker を作成
   if (pathfinderWorker) {
     pathfinderWorker.terminate();
@@ -212,11 +222,28 @@ function executePathfind(): void {
     
     if (result.type === 'progress' && result.progress) {
       let progressText = `検索済み: ${result.progress.toLocaleString()} 状態`;
+      if (result.estimatedTotal) {
+        progressText += ` / 推定総数: ${result.estimatedTotal.toLocaleString()}`;
+      }
+      if (result.maxDepthReached !== undefined) {
+        progressText += `\n探索深度: ${result.maxDepthReached} / 最大: 20`;
+      }
       if (result.currentBest) {
         progressText += `\n現在の最短距離: ${result.currentBest.distance.toFixed(2)}`;
         progressText += `\n最良結果: ${result.currentBest.text}`;
       }
       loadingProgress.innerHTML = progressText.replace(/\n/g, '<br>');
+      
+      // Update progress bar - use the better of the two progress metrics
+      if (result.progressPercentage !== undefined || result.depthProgress !== undefined) {
+        // Use whichever progress is higher to give a more accurate view
+        const stateProgress = result.progressPercentage || 0;
+        const depthProgress = result.depthProgress || 0;
+        const percentage = Math.min(100, Math.max(0, Math.max(stateProgress, depthProgress)));
+        progressBarFill.style.width = `${percentage}%`;
+        progressPercentage.textContent = `${percentage.toFixed(1)}%`;
+      }
+      
       return;
     }
     
