@@ -28,11 +28,38 @@ interface DFSState {
   visited: Set<string>;
 }
 
-// Serializable version of DFSState for JSON
-interface SerializableDFSState {
-  text: string;
-  path: string[];
-  visited: string[];
+// Priority queue implementation (same as JS version)
+class PriorityQueue<T> {
+  private items: { element: T; priority: number }[] = [];
+  
+  enqueue(element: T, priority: number): void {
+    const queueElement = { element, priority };
+    let added = false;
+    
+    for (let i = 0; i < this.items.length; i++) {
+      if (queueElement.priority < this.items[i].priority) {
+        this.items.splice(i, 0, queueElement);
+        added = true;
+        break;
+      }
+    }
+    
+    if (!added) {
+      this.items.push(queueElement);
+    }
+  }
+  
+  dequeue(): T | undefined {
+    return this.items.shift()?.element;
+  }
+  
+  isEmpty(): boolean {
+    return this.items.length === 0;
+  }
+  
+  get length(): number {
+    return this.items.length;
+  }
 }
 
 interface BestAttempt {
@@ -120,8 +147,18 @@ function getCharFrequencyFallback(text: string): Record<string, number> {
   return freq;
 }
 
+// Distance calculation cache
+const distanceCache = new Map<string, number>();
+
 // ヒューリスティック関数（WASM最適化版）
 function heuristic(current: string, target: string): number {
+  // Create cache key
+  const cacheKey = `${current}:::${target}`;
+  const cached = distanceCache.get(cacheKey);
+  if (cached !== undefined) {
+    return cached;
+  }
+  
   let editDistance: number;
   let freqDiff: number;
   
@@ -149,6 +186,15 @@ function heuristic(current: string, target: string): number {
   const score = editDistance * 2.0 + 
                 lengthDiff * 0.5 + 
                 freqDiff * 0.3;
+  
+  // Cache the result
+  distanceCache.set(cacheKey, score);
+  
+  // Keep cache size reasonable
+  if (distanceCache.size > 10000) {
+    const firstKey = distanceCache.keys().next().value;
+    distanceCache.delete(firstKey);
+  }
   
   return score;
 }
@@ -199,14 +245,17 @@ async function findPathDFS(
   hints: Hint[],
   maxDepth: number = 10
 ): Promise<WorkerResult> {
+  // Clear cache for new search
+  distanceCache.clear();
+  
   // Check if start and target are the same
   if (start === target) {
     console.log('Start and target are identical:', start);
     return { type: 'result', found: true, path: [], steps: [start], bestAttempts: [] };
   }
   
-  const queue = wasmOptimizer ? new WasmPriorityQueue() : null;
-  const fallbackQueue: { element: DFSState; priority: number }[] = [];
+  // Use JavaScript priority queue to avoid JSON serialization overhead
+  const queue = new PriorityQueue<DFSState>();
   
   const initialState: DFSState = {
     text: start,
@@ -214,16 +263,7 @@ async function findPathDFS(
     visited: new Set([start])
   };
   
-  if (queue) {
-    const serializable: SerializableDFSState = {
-      text: initialState.text,
-      path: initialState.path,
-      visited: Array.from(initialState.visited)
-    };
-    queue.push(0, JSON.stringify(serializable));
-  } else {
-    fallbackQueue.push({ element: initialState, priority: 0 });
-  }
+  queue.enqueue(initialState, 0);
   
   const bestAttempts: BestAttempt[] = [];
   let iterationCount = 0;
@@ -253,7 +293,7 @@ async function findPathDFS(
     }
   };
   
-  while (queue ? !queue.is_empty() : fallbackQueue.length > 0) {
+  while (!queue.isEmpty()) {
     if (cancelled) {
       return {
         type: 'cancelled',
@@ -261,23 +301,8 @@ async function findPathDFS(
       };
     }
     
-    let current: DFSState;
-    
-    if (queue) {
-      const stateJson = queue.pop();
-      if (!stateJson) break;
-      const serialized: SerializableDFSState = JSON.parse(stateJson);
-      current = {
-        text: serialized.text,
-        path: serialized.path,
-        visited: new Set(serialized.visited)
-      };
-    } else {
-      fallbackQueue.sort((a, b) => a.priority - b.priority);
-      const item = fallbackQueue.shift();
-      if (!item) break;
-      current = item.element;
-    }
+    const current = queue.dequeue();
+    if (!current) break;
     
     if (current.text === target) {
       return {
@@ -293,9 +318,19 @@ async function findPathDFS(
       };
     }
     
-    const currentDistance = wasmOptimizer 
-      ? wasmOptimizer.levenshtein_distance(current.text, target)
-      : levenshteinDistanceFallback(current.text, target);
+    // Use cached distance if available from heuristic calculation
+    const currentDistance = (() => {
+      const cacheKey = `${current.text}:::${target}`;
+      const cached = distanceCache.get(cacheKey);
+      if (cached !== undefined) {
+        // Extract just the edit distance part (first component of the score)
+        // This is an approximation, but avoids recalculation
+        return cached / 2.0;
+      }
+      return wasmOptimizer 
+        ? wasmOptimizer.levenshtein_distance(current.text, target)
+        : levenshteinDistanceFallback(current.text, target);
+    })();
     
     // Always update best attempts, not just when distance improves
     updateBestAttempts(current.text, current.path, currentDistance);
@@ -340,6 +375,11 @@ async function findPathDFS(
     const neighbors: { text: string; hintName: string }[] = [];
     
     for (const hint of hints) {
+      // Optimization: Skip if hint target is not in current text
+      if (hint.operation && hint.operation.target && !current.text.includes(hint.operation.target)) {
+        continue;
+      }
+      
       const result = decode(current.text, hints, [hint.name]);
       if (result.success && result.result && !current.visited.has(result.result)) {
         neighbors.push({
@@ -349,18 +389,7 @@ async function findPathDFS(
       }
     }
     
-    for (let i = 0; i < hints.length - 1; i++) {
-      if (cancelled) break;
-      for (let j = i + 1; j < hints.length; j++) {
-        const result = decode(current.text, hints, [hints[i].name, hints[j].name]);
-        if (result.success && result.result && !current.visited.has(result.result)) {
-          neighbors.push({
-            text: result.result,
-            hintName: `${hints[i].name}→${hints[j].name}`
-          });
-        }
-      }
-    }
+    // Removed double-hint exploration to match JS version and improve performance
     
     for (const neighbor of neighbors) {
       if (cancelled) break;
@@ -373,16 +402,7 @@ async function findPathDFS(
       
       const priority = heuristic(neighbor.text, target);
       
-      if (queue) {
-        const serializable: SerializableDFSState = {
-          text: newState.text,
-          path: newState.path,
-          visited: Array.from(newState.visited)
-        };
-        queue.push(Math.floor(priority * 1000), JSON.stringify(serializable));
-      } else {
-        fallbackQueue.push({ element: newState, priority });
-      }
+      queue.enqueue(newState, priority);
     }
   }
   
