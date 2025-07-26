@@ -381,29 +381,8 @@ impl PathfinderEngine {
         
         let base_distance = prev_row[len2] as f64;
         
-        // Calculate character overlap bonus
-        // Count how many characters from target appear in current text
-        let mut char_freq1 = HashMap::new();
-        let mut char_freq2 = HashMap::new();
-        
-        for ch in &chars1 {
-            *char_freq1.entry(*ch).or_insert(0) += 1;
-        }
-        for ch in &chars2 {
-            *char_freq2.entry(*ch).or_insert(0) += 1;
-        }
-        
-        let mut overlap_count = 0;
-        for (ch, count2) in &char_freq2 {
-            if let Some(&count1) = char_freq1.get(ch) {
-                overlap_count += min(count1, *count2);
-            }
-        }
-        
-        // Character overlap ratio (0.0 to 1.0)
-        let overlap_ratio = overlap_count as f64 / len2 as f64;
-        // Bonus for having the right characters (reduces distance)
-        let overlap_bonus = overlap_ratio * base_distance * 0.3; // 30% weight
+        // N-gram matching bonus
+        let ngram_bonus = self.calculate_ngram_bonus(&chars1, &chars2, base_distance);
         
         // Length difference penalty
         let length_penalty = if len1 > len2 {
@@ -419,7 +398,7 @@ impl PathfinderEngine {
         };
         
         // Final weighted distance
-        let weighted_distance = base_distance - overlap_bonus + length_penalty;
+        let weighted_distance = base_distance - ngram_bonus + length_penalty;
         
         // Ensure distance is non-negative
         let final_distance = weighted_distance.max(0.0);
@@ -433,6 +412,55 @@ impl PathfinderEngine {
         }
         
         final_distance
+    }
+    
+    fn calculate_ngram_bonus(&self, chars1: &[char], chars2: &[char], base_distance: f64) -> f64 {
+        let len1 = chars1.len();
+        let len2 = chars2.len();
+        
+        if len1 < 2 || len2 < 2 {
+            return 0.0;
+        }
+        
+        let mut ngram_matches = 0;
+        let mut total_possible_ngrams = 0;
+        
+        // Count 2-gram matches
+        let mut bigrams2 = HashSet::new();
+        for i in 0..len2.saturating_sub(1) {
+            bigrams2.insert((chars2[i], chars2[i + 1]));
+        }
+        total_possible_ngrams += bigrams2.len();
+        
+        for i in 0..len1.saturating_sub(1) {
+            if bigrams2.contains(&(chars1[i], chars1[i + 1])) {
+                ngram_matches += 1;
+            }
+        }
+        
+        // Count 3-gram matches (weighted more heavily)
+        if len1 >= 3 && len2 >= 3 {
+            let mut trigrams2 = HashSet::new();
+            for i in 0..len2.saturating_sub(2) {
+                trigrams2.insert((chars2[i], chars2[i + 1], chars2[i + 2]));
+            }
+            total_possible_ngrams += trigrams2.len() * 2; // Weight 3-grams more
+            
+            for i in 0..len1.saturating_sub(2) {
+                if trigrams2.contains(&(chars1[i], chars1[i + 1], chars1[i + 2])) {
+                    ngram_matches += 2; // 3-gram matches count double
+                }
+            }
+        }
+        
+        // Calculate bonus based on n-gram matches
+        if total_possible_ngrams > 0 {
+            let ngram_ratio = ngram_matches as f64 / total_possible_ngrams as f64;
+            // N-gram bonus can reduce distance by up to 40%
+            ngram_ratio * base_distance * 0.4
+        } else {
+            0.0
+        }
     }
     
     fn update_best_attempts(&mut self, text: String, path: Vec<String>, distance: f64) {
