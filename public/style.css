@@ -289,9 +289,12 @@ input[type="text"]:focus, select:focus {
     padding: 20px;
 }
 
-/* ベスト5表示用のスタイル */
+/* ベスト30表示用のスタイル */
 .no-path-result {
     padding: 20px;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
 }
 
 .best-attempts {
@@ -299,8 +302,6 @@ input[type="text"]:focus, select:focus {
     padding: 20px;
     background-color: #f8f9fa;
     border-radius: 5px;
-    max-height: 600px;
-    overflow-y: auto;
 }
 
 .best-attempts h3 {
@@ -325,10 +326,16 @@ input[type="text"]:focus, select:focus {
     background-color: #fff;
     border: 1px solid #ddd;
     border-radius: 5px;
-    padding: 15px;
-    margin-bottom: 15px;
+    padding: 20px;
+    margin-bottom: 20px;
     counter-increment: best-attempt;
     position: relative;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: box-shadow 0.3s;
+}
+
+.best-attempt-item:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
 .best-attempt-item::before {
@@ -341,13 +348,15 @@ input[type="text"]:focus, select:focus {
 }
 
 .attempt-text {
-    font-size: 1.2rem;
+    font-size: 1.3rem;
     font-family: monospace;
     color: #2c3e50;
-    margin-bottom: 10px;
-    padding: 10px;
+    margin-bottom: 15px;
+    padding: 15px;
     background-color: #ecf0f1;
-    border-radius: 3px;
+    border-radius: 5px;
+    line-height: 1.6;
+    word-break: break-word;
 }
 
 .attempt-info {
