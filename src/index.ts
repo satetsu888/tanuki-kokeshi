@@ -89,6 +89,10 @@ function populateHints(): void {
     groupCheckbox.type = 'checkbox';
     groupCheckbox.className = 'hint-group-checkbox';
     groupCheckbox.id = `group-${group}`;
+    // グループAはデフォルトでチェック
+    if (group === 'A') {
+      groupCheckbox.checked = true;
+    }
     groupCheckbox.addEventListener('click', (e) => handleGroupCheckbox(group, e));
     
     const groupTitle = document.createElement('div');
@@ -122,6 +126,10 @@ function populateHints(): void {
       checkbox.type = 'checkbox';
       checkbox.id = `hint-${hint.name}`;
       checkbox.value = hint.name;
+      // グループAのヒントはデフォルトでチェック
+      if (group === 'A') {
+        checkbox.checked = true;
+      }
       checkbox.addEventListener('change', () => {
         updateSelectedHints();
         updateGroupCheckboxState(group);
@@ -140,6 +148,9 @@ function populateHints(): void {
     groupContainer.appendChild(groupItems);
     hintCheckboxesContainer.appendChild(groupContainer);
   });
+  
+  // グループAのヒントを初期選択状態に
+  updateSelectedHints();
 }
 
 // グループチェックボックスのハンドラ
