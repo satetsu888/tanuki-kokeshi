@@ -48,6 +48,8 @@ const cancelBtn = document.getElementById('cancel-btn') as HTMLButtonElement;
 const modeRadios = document.querySelectorAll('input[name="mode"]') as NodeListOf<HTMLInputElement>;
 const encodeModeElements = document.querySelectorAll('.encode-mode') as NodeListOf<HTMLElement>;
 const pathfindModeElements = document.querySelectorAll('.pathfind-mode') as NodeListOf<HTMLElement>;
+const hintCountSlider = document.getElementById('hint-count-slider') as HTMLInputElement;
+const hintCountValue = document.getElementById('hint-count-value') as HTMLSpanElement;
 
 // グループ名の定義
 const groupNames: Record<HintGroup, string> = {
@@ -271,6 +273,16 @@ function execute(): void {
   }
 }
 
+// ランダムに要素を選択
+function selectRandomElements<T>(array: T[], count: number): T[] {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled.slice(0, count);
+}
+
 // エンコード実行
 function executeDecodeEncode(): void {
   const text = inputText.value.trim();
@@ -285,10 +297,33 @@ function executeDecodeEncode(): void {
     return;
   }
   
-  const result = encode(text, selectedHints);
+  // スライダーから使用するヒント数を取得
+  const hintCount = parseInt(hintCountSlider.value);
+  
+  // 選択されたヒントの数が指定数より少ない場合は、選択されたヒント数を使用
+  const actualHintCount = Math.min(hintCount, selectedHints.length);
+  
+  // ランダムにヒントを選択
+  const hintsToUse = selectRandomElements(selectedHints, actualHintCount);
+  
+  const result = encode(text, hintsToUse);
   
   if (result.success && result.result) {
-    resultContent.textContent = result.result;
+    // 問題文を表示
+    resultContent.innerHTML = `
+      <div class="encode-result">
+        <div class="problem-text">
+          <h3>問題</h3>
+          <p class="problem-content">${result.result}</p>
+        </div>
+        <div class="used-hints">
+          <h3>使用したヒント</h3>
+          <ul class="hint-list">
+            ${hintsToUse.map(hint => `<li>${hint}</li>`).join('')}
+          </ul>
+        </div>
+      </div>
+    `;
     resultSection.style.display = 'block';
   } else if (result.error) {
     alert(result.error);
@@ -511,6 +546,12 @@ function setupEventListeners(): void {
     if (e.key === 'Enter') {
       execute();
     }
+  });
+  
+  // ヒント数スライダー
+  hintCountSlider.addEventListener('input', (e) => {
+    const value = (e.target as HTMLInputElement).value;
+    hintCountValue.textContent = value;
   });
   
   // 中断ボタン
