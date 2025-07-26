@@ -188,7 +188,7 @@ function executePathfind(): void {
     pathfinderWorker.terminate();
   }
   
-  pathfinderWorker = new Worker(new URL('./pathfinder-worker-wasm.ts', import.meta.url), { type: 'module' });
+  pathfinderWorker = new Worker(new URL('./pathfinder-worker-engine.ts', import.meta.url), { type: 'module' });
   
   // Initialize WASM in the worker
   pathfinderWorker.postMessage({ type: 'init' });

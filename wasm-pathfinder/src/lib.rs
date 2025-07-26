@@ -1,147 +1,428 @@
 use wasm_bindgen::prelude::*;
-use std::collections::BinaryHeap;
+use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::cmp::{Ordering, min};
+use serde::{Serialize, Deserialize};
 
-#[wasm_bindgen]
-pub struct PathfinderOptimizer {
-    levenshtein_buffer: Vec<u32>,
+// Hint types matching TypeScript
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HintOperation {
+    #[serde(rename = "type")]
+    pub op_type: String,
+    pub target: String,
+    pub replacement: Option<String>,
 }
 
-#[wasm_bindgen]
-impl PathfinderOptimizer {
-    #[wasm_bindgen(constructor)]
-    pub fn new(max_string_length: usize) -> PathfinderOptimizer {
-        PathfinderOptimizer {
-            levenshtein_buffer: vec![0; (max_string_length + 1) * 2],
-        }
-    }
-
-    pub fn levenshtein_distance(&mut self, s1: &str, s2: &str) -> u32 {
-        let chars1: Vec<char> = s1.chars().collect();
-        let chars2: Vec<char> = s2.chars().collect();
-        let len1 = chars1.len();
-        let len2 = chars2.len();
-
-        if len1 == 0 {
-            return len2 as u32;
-        }
-        if len2 == 0 {
-            return len1 as u32;
-        }
-
-        let width = len2 + 1;
-        let buffer = &mut self.levenshtein_buffer;
-        
-        for j in 0..=len2 {
-            buffer[j] = j as u32;
-        }
-
-        let mut prev_row_idx = 0;
-        let mut curr_row_idx = width;
-
-        for i in 1..=len1 {
-            buffer[curr_row_idx] = i as u32;
-
-            for j in 1..=len2 {
-                let cost = if chars1[i - 1] == chars2[j - 1] { 0 } else { 1 };
-                
-                buffer[curr_row_idx + j] = min(
-                    min(
-                        buffer[prev_row_idx + j] + 1,     // deletion
-                        buffer[curr_row_idx + j - 1] + 1  // insertion
-                    ),
-                    buffer[prev_row_idx + j - 1] + cost   // substitution
-                );
-            }
-
-            std::mem::swap(&mut prev_row_idx, &mut curr_row_idx);
-        }
-
-        buffer[prev_row_idx + len2]
-    }
-
-    pub fn char_frequency_distance(&self, s1: &str, s2: &str) -> f64 {
-        let mut freq1 = [0u32; 65536];
-        let mut freq2 = [0u32; 65536];
-        
-        for ch in s1.chars() {
-            let idx = ch as usize;
-            if idx < 65536 {
-                freq1[idx] += 1;
-            }
-        }
-        
-        for ch in s2.chars() {
-            let idx = ch as usize;
-            if idx < 65536 {
-                freq2[idx] += 1;
-            }
-        }
-        
-        let mut distance = 0.0;
-        for i in 0..65536 {
-            let diff = (freq1[i] as i32 - freq2[i] as i32).abs();
-            distance += diff as f64;
-        }
-        
-        distance
-    }
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Hint {
+    pub name: String,
+    pub reading: String,
+    pub operation: HintOperation,
+    pub description: String,
 }
 
-#[wasm_bindgen]
-pub struct PriorityQueue {
-    heap: BinaryHeap<QueueItem>,
+// Search state
+#[derive(Debug, Clone)]
+struct SearchState {
+    text: String,
+    path: Vec<String>,
+    distance: f64,
+    heuristic_score: f64,
 }
 
-#[wasm_bindgen]
-pub struct QueueItem {
-    priority: i32,
-    data: String,
-}
-
-impl Ord for QueueItem {
+impl Ord for SearchState {
     fn cmp(&self, other: &Self) -> Ordering {
-        other.priority.cmp(&self.priority)
+        // Reverse for min-heap behavior
+        other.heuristic_score.partial_cmp(&self.heuristic_score)
+            .unwrap_or(Ordering::Equal)
     }
 }
 
-impl PartialOrd for QueueItem {
+impl PartialOrd for SearchState {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl PartialEq for QueueItem {
+impl PartialEq for SearchState {
     fn eq(&self, other: &Self) -> bool {
-        self.priority == other.priority
+        self.heuristic_score == other.heuristic_score
     }
 }
 
-impl Eq for QueueItem {}
+impl Eq for SearchState {}
+
+// Best attempt tracking
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BestAttempt {
+    pub text: String,
+    pub path: Vec<String>,
+    pub distance: f64,
+}
+
+// Search result
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SearchResult {
+    pub found: bool,
+    pub path: Vec<String>,
+    pub steps: Vec<String>,
+    pub best_attempts: Vec<BestAttempt>,
+    pub total_states_explored: usize,
+}
+
+// Progress update
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ProgressUpdate {
+    pub states_explored: usize,
+    pub current_best_distance: f64,
+    pub current_best_text: String,
+    pub queue_size: usize,
+}
 
 #[wasm_bindgen]
-impl PriorityQueue {
+pub struct PathfinderEngine {
+    // Core data structures
+    queue: BinaryHeap<SearchState>,
+    visited: HashSet<String>,
+    hints: Vec<Hint>,
+    
+    // Search parameters
+    start: String,
+    target: String,
+    max_depth: usize,
+    
+    // Tracking
+    best_attempts: Vec<BestAttempt>,
+    best_distance: f64,
+    states_explored: usize,
+    
+    // Caching
+    distance_cache: HashMap<(String, String), f64>,
+    decode_cache: HashMap<(String, String), Option<String>>,
+}
+
+#[wasm_bindgen]
+impl PathfinderEngine {
     #[wasm_bindgen(constructor)]
-    pub fn new() -> PriorityQueue {
-        PriorityQueue {
-            heap: BinaryHeap::new(),
+    pub fn new(start: &str, target: &str, hints_json: &str, max_depth: usize) -> Result<PathfinderEngine, JsValue> {
+        console_error_panic_hook::set_once();
+        
+        // Parse hints from JSON
+        let hints: Vec<Hint> = serde_json::from_str(hints_json)
+            .map_err(|e| JsValue::from_str(&format!("Failed to parse hints: {}", e)))?;
+        
+        let mut engine = PathfinderEngine {
+            queue: BinaryHeap::new(),
+            visited: HashSet::new(),
+            hints,
+            start: start.to_string(),
+            target: target.to_string(),
+            max_depth,
+            best_attempts: Vec::new(),
+            best_distance: f64::INFINITY,
+            states_explored: 0,
+            distance_cache: HashMap::new(),
+            decode_cache: HashMap::new(),
+        };
+        
+        // Initialize with start state
+        let start_text = engine.start.clone();
+        let target_text = engine.target.clone();
+        let initial_distance = engine.calculate_distance(&start_text, &target_text);
+        let initial_state = SearchState {
+            text: start_text.clone(),
+            path: Vec::new(),
+            distance: initial_distance,
+            heuristic_score: initial_distance,
+        };
+        
+        engine.queue.push(initial_state);
+        engine.visited.insert(start_text);
+        
+        Ok(engine)
+    }
+    
+    // Run search for a specified number of iterations
+    pub fn run_iterations(&mut self, iterations: usize) -> JsValue {
+        let mut found = false;
+        let mut final_path = Vec::new();
+        let mut final_steps = Vec::new();
+        
+        for _ in 0..iterations {
+            if self.queue.is_empty() {
+                break;
+            }
+            
+            let current = self.queue.pop().unwrap();
+            self.states_explored += 1;
+            
+            // Check if we found the target
+            if current.text == self.target {
+                found = true;
+                final_path = current.path.clone();
+                final_steps = self.reconstruct_path(&current.path);
+                
+                // Add to best attempts
+                self.update_best_attempts(
+                    current.text.clone(),
+                    current.path.clone(),
+                    current.distance
+                );
+                break;
+            }
+            
+            // Update best attempts
+            self.update_best_attempts(
+                current.text.clone(),
+                current.path.clone(),
+                current.distance
+            );
+            
+            // Skip if we've reached max depth
+            if current.path.len() >= self.max_depth {
+                continue;
+            }
+            
+            // Generate neighbors
+            self.generate_neighbors(&current);
+        }
+        
+        // Return result
+        if found {
+            let result = SearchResult {
+                found: true,
+                path: final_path,
+                steps: final_steps,
+                best_attempts: self.best_attempts.clone(),
+                total_states_explored: self.states_explored,
+            };
+            serde_wasm_bindgen::to_value(&result).unwrap()
+        } else {
+            // Return progress update
+            let progress = ProgressUpdate {
+                states_explored: self.states_explored,
+                current_best_distance: self.best_distance,
+                current_best_text: self.best_attempts.first()
+                    .map(|a| a.text.clone())
+                    .unwrap_or_default(),
+                queue_size: self.queue.len(),
+            };
+            serde_wasm_bindgen::to_value(&progress).unwrap()
         }
     }
-
-    pub fn push(&mut self, priority: i32, data: String) {
-        self.heap.push(QueueItem { priority, data });
+    
+    // Check if search is complete
+    pub fn is_complete(&self) -> bool {
+        self.queue.is_empty()
     }
-
-    pub fn pop(&mut self) -> Option<String> {
-        self.heap.pop().map(|item| item.data)
+    
+    // Get final result
+    pub fn get_result(&self) -> JsValue {
+        let result = SearchResult {
+            found: false,
+            path: Vec::new(),
+            steps: Vec::new(),
+            best_attempts: self.best_attempts.clone(),
+            total_states_explored: self.states_explored,
+        };
+        serde_wasm_bindgen::to_value(&result).unwrap()
     }
+}
 
-    pub fn is_empty(&self) -> bool {
-        self.heap.is_empty()
+// Private implementation methods
+impl PathfinderEngine {
+    fn generate_neighbors(&mut self, current: &SearchState) {
+        for hint in &self.hints.clone() {
+            // Skip if hint target not in text (optimization)
+            if !current.text.contains(&hint.operation.target) {
+                continue;
+            }
+            
+            // Apply hint
+            if let Some(new_text) = self.apply_hint(&current.text, hint) {
+                // Skip if already visited
+                if self.visited.contains(&new_text) {
+                    continue;
+                }
+                
+                // Calculate scores
+                let target = self.target.clone();
+                let distance = self.calculate_distance(&new_text, &target);
+                let new_path = {
+                    let mut path = current.path.clone();
+                    path.push(hint.name.clone());
+                    path
+                };
+                
+                // Heuristic includes path length to prefer shorter paths
+                let heuristic_score = distance + (new_path.len() as f64) * 0.1;
+                
+                // Add to queue
+                let new_state = SearchState {
+                    text: new_text.clone(),
+                    path: new_path,
+                    distance,
+                    heuristic_score,
+                };
+                
+                self.queue.push(new_state);
+                self.visited.insert(new_text);
+            }
+        }
     }
-
-    pub fn len(&self) -> usize {
-        self.heap.len()
+    
+    fn apply_hint(&mut self, text: &str, hint: &Hint) -> Option<String> {
+        // Check cache
+        let cache_key = (text.to_string(), hint.name.clone());
+        if let Some(cached) = self.decode_cache.get(&cache_key) {
+            return cached.clone();
+        }
+        
+        // Apply hint operation
+        let result = match hint.operation.op_type.as_str() {
+            "remove" => {
+                let new_text = text.replace(&hint.operation.target, "");
+                if new_text != text {
+                    Some(new_text)
+                } else {
+                    None
+                }
+            },
+            "replace" => {
+                if let Some(replacement) = &hint.operation.replacement {
+                    let new_text = text.replace(&hint.operation.target, replacement);
+                    if new_text != text {
+                        Some(new_text)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            },
+            _ => None,
+        };
+        
+        // Cache result
+        self.decode_cache.insert(cache_key, result.clone());
+        result
+    }
+    
+    fn calculate_distance(&mut self, s1: &str, s2: &str) -> f64 {
+        // Check cache
+        let cache_key = (s1.to_string(), s2.to_string());
+        if let Some(&cached) = self.distance_cache.get(&cache_key) {
+            return cached;
+        }
+        
+        // Calculate Levenshtein distance
+        let chars1: Vec<char> = s1.chars().collect();
+        let chars2: Vec<char> = s2.chars().collect();
+        let len1 = chars1.len();
+        let len2 = chars2.len();
+        
+        if len1 == 0 {
+            return len2 as f64;
+        }
+        if len2 == 0 {
+            return len1 as f64;
+        }
+        
+        // Use two-row optimization
+        let mut prev_row: Vec<u32> = (0..=len2 as u32).collect();
+        let mut curr_row = vec![0u32; len2 + 1];
+        
+        for i in 1..=len1 {
+            curr_row[0] = i as u32;
+            
+            for j in 1..=len2 {
+                let cost = if chars1[i - 1] == chars2[j - 1] { 0 } else { 1 };
+                curr_row[j] = min(
+                    min(prev_row[j] + 1, curr_row[j - 1] + 1),
+                    prev_row[j - 1] + cost
+                );
+            }
+            
+            std::mem::swap(&mut prev_row, &mut curr_row);
+        }
+        
+        let distance = prev_row[len2] as f64;
+        
+        // Cache result
+        self.distance_cache.insert(cache_key, distance);
+        
+        // Keep cache size reasonable
+        if self.distance_cache.len() > 10000 {
+            self.distance_cache.clear();
+        }
+        
+        distance
+    }
+    
+    fn update_best_attempts(&mut self, text: String, path: Vec<String>, distance: f64) {
+        // Update best distance
+        if distance < self.best_distance {
+            self.best_distance = distance;
+        }
+        
+        // Check if already in best attempts
+        if let Some(pos) = self.best_attempts.iter().position(|a| a.text == text) {
+            // Update if shorter path
+            if path.len() < self.best_attempts[pos].path.len() {
+                self.best_attempts[pos] = BestAttempt { text, path, distance };
+            }
+        } else {
+            // Add new attempt
+            self.best_attempts.push(BestAttempt { text, path, distance });
+            
+            // Sort and keep top 30
+            self.best_attempts.sort_by(|a, b| {
+                a.distance.partial_cmp(&b.distance).unwrap_or(Ordering::Equal)
+            });
+            self.best_attempts.truncate(30);
+        }
+    }
+    
+    fn reconstruct_path(&self, path: &[String]) -> Vec<String> {
+        let mut steps = vec![self.start.clone()];
+        let mut current_text = self.start.clone();
+        
+        for hint_name in path {
+            // Find hint by name
+            if let Some(hint) = self.hints.iter().find(|h| h.name == *hint_name) {
+                if let Some(new_text) = self.apply_hint_uncached(&current_text, hint) {
+                    current_text = new_text.clone();
+                    steps.push(new_text);
+                }
+            }
+        }
+        
+        steps
+    }
+    
+    fn apply_hint_uncached(&self, text: &str, hint: &Hint) -> Option<String> {
+        match hint.operation.op_type.as_str() {
+            "remove" => {
+                let new_text = text.replace(&hint.operation.target, "");
+                if new_text != text {
+                    Some(new_text)
+                } else {
+                    None
+                }
+            },
+            "replace" => {
+                if let Some(replacement) = &hint.operation.replacement {
+                    let new_text = text.replace(&hint.operation.target, replacement);
+                    if new_text != text {
+                        Some(new_text)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            },
+            _ => None,
+        }
     }
 }
 
