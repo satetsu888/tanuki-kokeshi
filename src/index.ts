@@ -250,7 +250,42 @@ function executePathfind(): void {
     if (result.type === 'cancelled') {
       loadingSection.style.display = 'none';
       executeBtn.disabled = false;
-      alert('探索が中断されました');
+      
+      // Display TOP30 even when cancelled
+      let html = '<div class="no-path-result">';
+      html += '<div class="no-path">探索が中断されました。</div>';
+      
+      // ベスト30が存在する場合は表示
+      if (result.bestAttempts && result.bestAttempts.length > 0) {
+        html += '<div class="best-attempts">';
+        html += '<h3>中断時点での最も近い状態（ベスト' + Math.min(result.bestAttempts.length, 30) + '）</h3>';
+        html += '<p class="best-attempts-description">以下は探索中断時点で見つかった、目標文章に最も近い状態です：</p>';
+        
+        html += '<ol class="best-attempts-list">';
+        for (const attempt of result.bestAttempts) {
+          html += '<li class="best-attempt-item">';
+          html += `<div class="attempt-text">${attempt.text}</div>`;
+          html += `<div class="attempt-info">`;
+          html += `<span class="attempt-distance">距離: ${attempt.distance.toFixed(2)}</span>`;
+          html += `<span class="attempt-steps">ステップ数: ${attempt.path.length}</span>`;
+          html += `</div>`;
+          
+          if (attempt.path.length > 0) {
+            html += `<div class="attempt-path">`;
+            html += `使用したヒント: ${attempt.path.map(h => `<span class="hint-badge-small">${h}</span>`).join(' → ')}`;
+            html += `</div>`;
+          }
+          
+          html += '</li>';
+        }
+        html += '</ol>';
+        html += '</div>';
+      }
+      
+      html += '</div>';
+      
+      resultContent.innerHTML = html;
+      resultSection.style.display = 'block';
       return;
     }
     
