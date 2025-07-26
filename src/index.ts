@@ -10,7 +10,7 @@ interface BestAttempt {
 }
 
 interface WorkerResult {
-  type: 'result' | 'progress' | 'cancelled';
+  type: 'result' | 'progress' | 'cancelled' | 'initialized';
   found?: boolean;
   path?: string[];
   steps?: string[];
@@ -188,11 +188,27 @@ function executePathfind(): void {
     pathfinderWorker.terminate();
   }
   
-  pathfinderWorker = new Worker(new URL('./pathfinder-worker.ts', import.meta.url));
+  pathfinderWorker = new Worker(new URL('./pathfinder-worker-wasm.ts', import.meta.url), { type: 'module' });
+  
+  // Initialize WASM in the worker
+  pathfinderWorker.postMessage({ type: 'init' });
   
   // Worker からのメッセージを処理
   pathfinderWorker.onmessage = (event) => {
     const result: WorkerResult = event.data;
+    
+    if (result.type === 'initialized') {
+      // WASM initialization complete, now start the search
+      console.log('WASM initialized, starting search with:', { start, target });
+      pathfinderWorker.postMessage({
+        type: 'search',
+        start: start,
+        target: target,
+        maxDepth: 20,
+        hints: getAllHints()
+      });
+      return;
+    }
     
     if (result.type === 'progress' && result.progress) {
       let progressText = `検索済み: ${result.progress.toLocaleString()} 状態`;
@@ -289,14 +305,7 @@ function executePathfind(): void {
     console.error(error);
   };
   
-  // Worker に探索開始のメッセージを送信
-  pathfinderWorker.postMessage({
-    type: 'search',
-    start: start,
-    target: target,
-    maxDepth: 20,
-    hints: getAllHints()
-  });
+  // Search message is now sent after WASM initialization in the onmessage handler
 }
 
 // イベントリスナーの設定

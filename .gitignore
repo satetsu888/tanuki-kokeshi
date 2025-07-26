@@ -1,1 +1,5 @@
 node_modules
+dist
+src/wasm-pathfinder
+wasm-pathfinder/target
+wasm-pathfinder/Cargo.lock

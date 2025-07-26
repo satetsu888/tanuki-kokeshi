@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "npm run build:wasm && tsc && vite build",
+    "build:wasm": "cd wasm-pathfinder && ./build.sh",
     "preview": "vite preview"
   },
   "devDependencies": {
