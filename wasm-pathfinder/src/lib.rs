@@ -355,13 +355,13 @@ impl PathfinderEngine {
         let len2 = chars2.len();
         
         if len1 == 0 {
-            return len2 as f64;
+            return len2 as f64 * 2.0; // Heavy penalty for empty string
         }
         if len2 == 0 {
             return len1 as f64;
         }
         
-        // Use two-row optimization
+        // Use two-row optimization for base Levenshtein distance
         let mut prev_row: Vec<u32> = (0..=len2 as u32).collect();
         let mut curr_row = vec![0u32; len2 + 1];
         
@@ -379,17 +379,60 @@ impl PathfinderEngine {
             std::mem::swap(&mut prev_row, &mut curr_row);
         }
         
-        let distance = prev_row[len2] as f64;
+        let base_distance = prev_row[len2] as f64;
+        
+        // Calculate character overlap bonus
+        // Count how many characters from target appear in current text
+        let mut char_freq1 = HashMap::new();
+        let mut char_freq2 = HashMap::new();
+        
+        for ch in &chars1 {
+            *char_freq1.entry(*ch).or_insert(0) += 1;
+        }
+        for ch in &chars2 {
+            *char_freq2.entry(*ch).or_insert(0) += 1;
+        }
+        
+        let mut overlap_count = 0;
+        for (ch, count2) in &char_freq2 {
+            if let Some(&count1) = char_freq1.get(ch) {
+                overlap_count += min(count1, *count2);
+            }
+        }
+        
+        // Character overlap ratio (0.0 to 1.0)
+        let overlap_ratio = overlap_count as f64 / len2 as f64;
+        // Bonus for having the right characters (reduces distance)
+        let overlap_bonus = overlap_ratio * base_distance * 0.3; // 30% weight
+        
+        // Length difference penalty
+        let length_penalty = if len1 > len2 {
+            // Current is longer than target - light penalty
+            // Easier to remove characters
+            ((len1 - len2) as f64) * 0.2
+        } else if len1 < len2 {
+            // Current is shorter than target - heavy penalty
+            // Harder to add back characters
+            ((len2 - len1) as f64) * 1.5
+        } else {
+            0.0
+        };
+        
+        // Final weighted distance
+        let weighted_distance = base_distance - overlap_bonus + length_penalty;
+        
+        // Ensure distance is non-negative
+        let final_distance = weighted_distance.max(0.0);
         
         // Cache result
-        self.distance_cache.insert(cache_key, distance);
+        self.distance_cache.insert(cache_key, final_distance);
         
         // Keep cache size reasonable
         if self.distance_cache.len() > 10000 {
             self.distance_cache.clear();
         }
         
-        distance
+        final_distance
     }
     
     fn update_best_attempts(&mut self, text: String, path: Vec<String>, distance: f64) {

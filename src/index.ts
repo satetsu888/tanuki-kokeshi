@@ -214,7 +214,7 @@ function executePathfind(): void {
         type: 'search',
         start: start,
         target: target,
-        maxDepth: 20,
+        maxDepth: 30,
         hints: getAllHints()
       });
       return;
@@ -226,7 +226,7 @@ function executePathfind(): void {
         progressText += ` / 推定総数: ${result.estimatedTotal.toLocaleString()}`;
       }
       if (result.maxDepthReached !== undefined) {
-        progressText += `\n探索深度: ${result.maxDepthReached} / 最大: 20`;
+        progressText += `\n探索深度: ${result.maxDepthReached} / 最大: 30`;
       }
       if (result.currentBest) {
         progressText += `\n現在の最短距離: ${result.currentBest.distance.toFixed(2)}`;
