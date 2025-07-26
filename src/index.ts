@@ -1,4 +1,4 @@
-import { getAllHints } from './hints';
+import { getAllHints, getHint } from './hints';
 import { encode } from './cipher';
 import { Hint, HintGroup } from './types';
 
@@ -276,6 +276,26 @@ function selectRandomElements<T>(array: T[], count: number): T[] {
   return shuffled.slice(0, count);
 }
 
+// ヒントが実際に変化を起こすかチェック
+function isHintEffective(text: string, hintName: string): boolean {
+  const hint = getHint(hintName);
+  if (!hint) return false;
+  
+  switch (hint.operation.type) {
+    case 'remove':
+      // removeヒントは常に文字を追加するので有効
+      return true;
+    case 'replace':
+      // replaceヒントは置き換え先（replacement）が文章に含まれている場合のみ有効
+      if (hint.operation.replacement !== undefined) {
+        return text.includes(hint.operation.replacement);
+      }
+      return false;
+    default:
+      return false;
+  }
+}
+
 // エンコード実行
 function executeDecodeEncode(): void {
   const text = inputText.value.trim();
@@ -293,11 +313,19 @@ function executeDecodeEncode(): void {
   // スライダーから使用するヒント数を取得
   const hintCount = parseInt(hintCountSlider.value);
   
-  // 選択されたヒントの数が指定数より少ない場合は、選択されたヒント数を使用
-  const actualHintCount = Math.min(hintCount, selectedHints.length);
+  // 効果的なヒントのみをフィルタリング
+  const effectiveHints = selectedHints.filter(hintName => isHintEffective(text, hintName));
+  
+  if (effectiveHints.length === 0) {
+    alert('選択されたヒントでは問題を作成できません。他のヒントを選択してください。');
+    return;
+  }
+  
+  // 効果的なヒントの数と指定数の小さい方を使用
+  const actualHintCount = Math.min(hintCount, effectiveHints.length);
   
   // ランダムにヒントを選択
-  const hintsToUse = selectRandomElements(selectedHints, actualHintCount);
+  const hintsToUse = selectRandomElements(effectiveHints, actualHintCount);
   
   const result = encode(text, hintsToUse);
   
